@@ -1,0 +1,42 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "xmip-backend"
+version = "0.1.0"
+description = "Backend API for the XMIP newsroom platform."
+requires-python = ">=3.11"
+dependencies = [
+    "alembic>=1.13.2",
+    "asyncpg>=0.29.0",
+    "aiosqlite>=0.20.0",
+    "fastapi>=0.115.0",
+    "pydantic>=2.8.0",
+    "pydantic-settings>=2.4.0",
+    "sqlalchemy>=2.0.32",
+    "uvicorn[standard]>=0.30.6",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.27.0",
+    "pytest>=8.3.2",
+    "pytest-asyncio>=0.23.8",
+    "ruff>=0.6.2",
+]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*"]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]

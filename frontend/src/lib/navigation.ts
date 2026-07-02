@@ -1,0 +1,40 @@
+import {
+  Activity,
+  AudioLines,
+  BarChart3,
+  Bot,
+  Brain,
+  CalendarDays,
+  Clapperboard,
+  FileText,
+  LayoutDashboard,
+  Network,
+  Radar,
+  ScrollText,
+  Send,
+  Settings,
+  ShieldAlert,
+  ShieldCheck,
+  TrendingUp,
+} from 'lucide-react'
+
+export const navItems = [
+  { label: 'Command Center', path: '/', icon: LayoutDashboard },
+  { label: 'News Intake', path: '/intake', icon: Radar },
+  { label: 'Source Validation', path: '/sources', icon: ShieldCheck },
+  { label: 'Market Impact', path: '/impact', icon: TrendingUp },
+  { label: 'Risk Review', path: '/risk', icon: ShieldAlert },
+  { label: 'Editorial Desk', path: '/editorial', icon: FileText },
+  { label: 'Scripts', path: '/scripts', icon: ScrollText },
+  { label: 'Social Clips', path: '/clips', icon: Clapperboard },
+  { label: 'Distribution', path: '/distribution', icon: Send },
+  { label: 'Calendar', path: '/calendar', icon: CalendarDays },
+  { label: 'Metrics', path: '/metrics', icon: BarChart3 },
+  { label: 'Agents', path: '/agents', icon: Bot },
+  { label: 'Knowledge Graph', path: '/graph', icon: Network },
+  { label: 'Memory', path: '/memory', icon: Brain },
+  { label: 'Audit', path: '/audit', icon: Activity },
+  { label: 'Settings', path: '/settings', icon: Settings },
+] as const
+
+export const channelIcon = AudioLines

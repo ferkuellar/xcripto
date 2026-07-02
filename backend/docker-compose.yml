@@ -1,0 +1,31 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: xmip
+      POSTGRES_PASSWORD: xmip
+      POSTGRES_DB: xmip
+    ports:
+      - "5432:5432"
+    volumes:
+      - xmip_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U xmip"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      ENVIRONMENT: dev
+      DATABASE_URL: postgresql+asyncpg://xmip:xmip@db:5432/xmip
+      AUTO_CREATE_TABLES: "true"
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+
+volumes:
+  xmip_pgdata:
