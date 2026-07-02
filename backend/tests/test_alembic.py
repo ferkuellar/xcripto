@@ -41,3 +41,11 @@ def test_workflow_orchestration_alembic_migration_exists():
     assert migration_path.exists()
     assert "workflow_runs" in migration_text
     assert "workflow_steps" in migration_text
+
+
+def test_agent_output_storage_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0004_add_agent_output_storage.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "agent_outputs" in migration_text

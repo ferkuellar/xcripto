@@ -4,7 +4,8 @@ Backend API de la plataforma multiagente **XMIP** (newsroom de **XCripto**, bajo
 
 Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad por
 `X-Correlation-ID`, migración Alembic inicial, máquina de estados editorial para
-`NewsItem`, autorización mínima por API key y editorial gates basados en `AuditCheck`.
+`NewsItem`, autorización mínima por API key, editorial gates basados en `AuditCheck`
+y almacenamiento auditable de `AgentOutput`.
 
 ## Stack
 
@@ -124,6 +125,10 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `POST /api/v1/workflows/news/{news_id}/start`
 - `POST /api/v1/workflows/{workflow_run_id}/recalculate`
 - `POST /api/v1/workflows/{workflow_run_id}/advance`
+- `POST /api/v1/agent-outputs`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/accept`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/reject`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/supersede`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -173,6 +178,17 @@ Respuestas esperadas con auth activa:
 - `POST /api/v1/agents/executions`
 - `GET /api/v1/agents/executions` - filtros `agent_name`, `status`, `limit`, `offset`
 - `GET /api/v1/agents/executions/{execution_id}`
+
+### Agent Outputs
+
+- `POST /api/v1/agent-outputs`
+- `GET /api/v1/agent-outputs` - filtros `agent_name`, `output_type`, `status`, `entity_type`, `entity_id`, `news_item_id`, `workflow_run_id`, `agent_execution_id`, `human_review_required`, `accepted`, `limit`, `offset`
+- `GET /api/v1/agent-outputs/{agent_output_id}`
+- `GET /api/v1/news/{news_id}/agent-outputs`
+- `GET /api/v1/workflows/{workflow_run_id}/agent-outputs`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/accept`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/reject`
+- `PATCH /api/v1/agent-outputs/{agent_output_id}/supersede`
 
 ### Audit Checks (`/api/v1/audit/checks`)
 
@@ -227,6 +243,135 @@ Respuestas esperadas con auth activa:
 - `GET /api/v1/news/{news_id}/workflow`
 - `POST /api/v1/workflows/{workflow_run_id}/recalculate`
 - `POST /api/v1/workflows/{workflow_run_id}/advance`
+
+## Agent Output Storage
+
+Fase 6 agrega `AgentOutput` para guardar resultados estructurados de agentes editoriales.
+Esto no ejecuta agentes reales ni llama APIs externas; solo persiste outputs auditables.
+
+Reglas críticas:
+
+- `AgentOutput` no es fuente factual.
+- `AgentOutput` no es aprobación editorial.
+- `AgentOutput` no publica.
+- `AgentOutput` no reemplaza `VerificationRecord`, `RiskReview`, `AuditCheck`,
+  `ContentPiece`, `DistributionPlan` ni `PublicationRecord`.
+
+Relaciones posibles:
+
+- `agent_execution_id`
+- `news_item_id`
+- `workflow_run_id`
+- `workflow_step_id`
+- `entity_type` + `entity_id`
+
+Al crear un output debe existir al menos una relación operativa. Si se pasan IDs de
+`NewsItem`, `WorkflowRun`, `WorkflowStep` o `AgentExecution`, el backend valida que existan.
+
+Agentes permitidos:
+
+```text
+NewsScoutAgent
+SourceValidatorAgent
+RiskAgent
+MarketImpactAgent
+EditorialAgent
+ScriptAgent
+SocialClipAgent
+DistributionAgent
+AuditAgent
+MemoryAgent
+KnowledgeAgent
+CalendarAgent
+MetricsAgent
+```
+
+Tipos de output:
+
+```text
+news_scout_report
+source_review
+risk_review
+market_impact_assessment
+editorial_output
+script_output
+social_output
+distribution_plan_output
+audit_check_output
+memory_proposal
+knowledge_graph_proposal
+calendar_recommendation
+metrics_review
+workflow_recommendation
+generic_agent_output
+```
+
+Estados:
+
+```text
+created
+stored
+pending_review
+accepted
+rejected
+superseded
+blocked
+failed
+archived
+```
+
+Flags sensibles como `missing_source`, `rumor_as_fact`, `financial_advice_risk`,
+`hallucinated_source` o `critical_risk` activan `human_review_required=true`.
+
+Crear output:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-outputs \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "agent_name": "NewsScoutAgent",
+    "agent_version": "0.1.0",
+    "output_type": "news_scout_report",
+    "news_item_id": "NEWS_ITEM_ID",
+    "summary": "Scout report for ETF inflow signal.",
+    "payload": {"signals": [{"title": "ETF inflows", "confidence": "medium"}]},
+    "next_agent": "SourceValidatorAgent"
+  }'
+```
+
+Aceptar, rechazar o supersede:
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/agent-outputs/OUTPUT_ID/accept \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"accepted_by": "operator"}'
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/agent-outputs/OUTPUT_ID/reject \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"rejected_reason": "Output changed certainty level without evidence."}'
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/agent-outputs/OUTPUT_ID/supersede \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"superseded_by_output_id": "REPLACEMENT_OUTPUT_ID"}'
+```
+
+Ejemplos mínimos por agente:
+
+```json
+{"agent_name":"NewsScoutAgent","output_type":"news_scout_report","payload":{"signals":[]}}
+{"agent_name":"RiskAgent","output_type":"risk_review","payload":{"risk_level":"medium"}}
+{"agent_name":"EditorialAgent","output_type":"editorial_output","payload":{"draft_title":"..."}}
+{"agent_name":"AuditAgent","output_type":"audit_check_output","payload":{"ready_to_advance":false}}
+{"agent_name":"MetricsAgent","output_type":"metrics_review","payload":{"observations":[]}}
+```
 
 ## Editorial Core
 

@@ -1,4 +1,5 @@
 from app.models.agent_execution import AgentExecution
+from app.models.agent_output import AgentOutput
 from app.models.audit_check import AuditCheck
 from app.models.content_piece import ContentPiece
 from app.models.distribution_plan import DistributionPlan
@@ -12,6 +13,7 @@ from app.models.workflow_step import WorkflowStep
 
 __all__ = [
     "AgentExecution",
+    "AgentOutput",
     "AuditCheck",
     "ContentPiece",
     "DistributionPlan",
