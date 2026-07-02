@@ -13,7 +13,9 @@ class AuditCheck(UuidPrimaryKeyMixin, TimestampMixin, Base):
     severity: Mapped[str] = mapped_column(String(40), nullable=False, default="medium")
     decision_recommendation: Mapped[str | None] = mapped_column(String(240), nullable=True)
     ready_to_advance: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    publication_block_recommended: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    publication_block_recommended: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False
+    )
     missing_requirements: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     audit_flags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
     correlation_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)

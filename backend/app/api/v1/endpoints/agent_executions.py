@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -8,13 +10,14 @@ from app.schemas.agent_execution import AgentExecutionCreate, AgentExecutionRead
 from app.services import agent_execution_service
 
 router = APIRouter(prefix="/agents/executions", tags=["agent-executions"])
+SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
 @router.post("", response_model=AgentExecutionRead, status_code=201)
 async def create_execution(
     payload: AgentExecutionCreate,
     request: Request,
-    session: AsyncSession = Depends(get_session),
+    session: SessionDep,
 ) -> AgentExecutionRead:
     execution = await agent_execution_service.create_execution(
         session, payload, request.state.correlation_id
@@ -24,11 +27,11 @@ async def create_execution(
 
 @router.get("", response_model=list[AgentExecutionRead])
 async def list_executions(
+    session: SessionDep,
     agent_name: str | None = Query(default=None),
     status: str | None = Query(default=None),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
-    session: AsyncSession = Depends(get_session),
 ) -> list[AgentExecutionRead]:
     if status is not None and status not in AGENT_EXECUTION_STATUSES:
         raise DomainValidationError(f"status must be one of {sorted(AGENT_EXECUTION_STATUSES)}")
@@ -39,8 +42,6 @@ async def list_executions(
 
 
 @router.get("/{execution_id}", response_model=AgentExecutionRead)
-async def get_execution(
-    execution_id: str, session: AsyncSession = Depends(get_session)
-) -> AgentExecutionRead:
+async def get_execution(execution_id: str, session: SessionDep) -> AgentExecutionRead:
     execution = await agent_execution_service.get_execution(session, execution_id)
     return AgentExecutionRead.model_validate(execution)

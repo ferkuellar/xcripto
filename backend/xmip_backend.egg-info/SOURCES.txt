@@ -14,6 +14,7 @@ app/core/config.py
 app/core/constants.py
 app/core/errors.py
 app/core/middleware.py
+app/core/state_machine.py
 app/db/base.py
 app/db/init_db.py
 app/db/session.py
@@ -33,10 +34,12 @@ app/services/audit_check_service.py
 app/services/news_service.py
 app/services/source_service.py
 tests/test_agent_executions.py
+tests/test_alembic.py
 tests/test_audit_checks.py
 tests/test_health.py
 tests/test_news.py
 tests/test_sources.py
+tests/test_state_machine.py
 xmip_backend.egg-info/PKG-INFO
 xmip_backend.egg-info/SOURCES.txt
 xmip_backend.egg-info/dependency_links.txt

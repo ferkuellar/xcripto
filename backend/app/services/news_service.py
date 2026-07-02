@@ -1,7 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.errors import NotFoundError
+from app.core.errors import DomainValidationError, NotFoundError
+from app.core.state_machine import is_valid_news_status_transition
 from app.models import NewsItem
 from app.schemas.news import NewsCreate
 
@@ -40,6 +41,9 @@ async def get_news_item(session: AsyncSession, news_id: str) -> NewsItem:
 
 async def update_news_status(session: AsyncSession, news_id: str, status: str) -> NewsItem:
     item = await get_news_item(session, news_id)
+    if not is_valid_news_status_transition(item.status, status):
+        raise DomainValidationError(f"Invalid status transition from {item.status} to {status}")
+
     item.status = status
     await session.commit()
     await session.refresh(item)

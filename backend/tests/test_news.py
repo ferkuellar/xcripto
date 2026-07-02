@@ -20,6 +20,18 @@ async def test_intake_news(client):
     assert body["correlation_id"]  # filled from middleware when not provided
 
 
+async def test_intake_news_persists_header_correlation_id(client):
+    response = await client.post(
+        "/api/v1/news/intake",
+        json=NEWS_PAYLOAD,
+        headers={"X-Correlation-ID": "corr-test-news-001"},
+    )
+
+    assert response.status_code == 201
+    assert response.headers["X-Correlation-ID"] == "corr-test-news-001"
+    assert response.json()["correlation_id"] == "corr-test-news-001"
+
+
 async def test_intake_rejects_invalid_priority(client):
     response = await client.post(
         "/api/v1/news/intake", json={**NEWS_PAYLOAD, "priority": "P9"}
@@ -58,11 +70,62 @@ async def test_update_news_status(client):
     created = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
 
     response = await client.patch(
-        f"/api/v1/news/{created['id']}/status", json={"status": "verified"}
+        f"/api/v1/news/{created['id']}/status", json={"status": "registered"}
     )
 
     assert response.status_code == 200
-    assert response.json()["status"] == "verified"
+    assert response.json()["status"] == "registered"
+
+
+async def test_update_news_status_blocks_detected_to_verified(client):
+    created = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+
+    response = await client.patch(
+        f"/api/v1/news/{created['id']}/status", json={"status": "verified"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["success"] is False
+    assert response.json()["error"] == "Invalid status transition from detected to verified"
+
+
+async def test_update_news_status_blocks_rumor_to_published(client):
+    created = (
+        await client.post("/api/v1/news/intake", json={**NEWS_PAYLOAD, "status": "rumor"})
+    ).json()
+
+    response = await client.patch(
+        f"/api/v1/news/{created['id']}/status", json={"status": "published"}
+    )
+
+    assert response.status_code == 400
+    assert response.json()["error"] == "Invalid status transition from rumor to published"
+
+
+async def test_update_news_status_allows_published_to_corrected(client):
+    created = (
+        await client.post("/api/v1/news/intake", json={**NEWS_PAYLOAD, "status": "published"})
+    ).json()
+
+    response = await client.patch(
+        f"/api/v1/news/{created['id']}/status", json={"status": "corrected"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "corrected"
+
+
+async def test_update_news_status_allows_published_to_retracted(client):
+    created = (
+        await client.post("/api/v1/news/intake", json={**NEWS_PAYLOAD, "status": "published"})
+    ).json()
+
+    response = await client.patch(
+        f"/api/v1/news/{created['id']}/status", json={"status": "retracted"}
+    )
+
+    assert response.status_code == 200
+    assert response.json()["status"] == "retracted"
 
 
 async def test_update_news_status_rejects_unknown_status(client):
