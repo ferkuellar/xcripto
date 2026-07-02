@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import NEWS_STATUSES
 from app.core.errors import DomainValidationError
+from app.core.security import require_api_key
 from app.db.session import get_session
 from app.schemas.news import NewsCreate, NewsRead, NewsStatusUpdate
 from app.services import news_service
@@ -13,7 +14,12 @@ router = APIRouter(prefix="/news", tags=["news"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("/intake", response_model=NewsRead, status_code=201)
+@router.post(
+    "/intake",
+    response_model=NewsRead,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
 async def intake_news(
     payload: NewsCreate,
     request: Request,
@@ -42,7 +48,11 @@ async def get_news(news_id: str, session: SessionDep) -> NewsRead:
     return NewsRead.model_validate(item)
 
 
-@router.patch("/{news_id}/status", response_model=NewsRead)
+@router.patch(
+    "/{news_id}/status",
+    response_model=NewsRead,
+    dependencies=[Depends(require_api_key)],
+)
 async def update_news_status(
     news_id: str,
     payload: NewsStatusUpdate,

@@ -3,7 +3,8 @@
 Backend API de la plataforma multiagente **XMIP** (newsroom de **XCripto**, bajo gobierno **ORION**).
 
 Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad por
-`X-Correlation-ID`, migración Alembic inicial y máquina de estados editorial para `NewsItem`.
+`X-Correlation-ID`, migración Alembic inicial, máquina de estados editorial para
+`NewsItem`, autorización mínima por API key y editorial gates basados en `AuditCheck`.
 
 ## Stack
 
@@ -91,13 +92,51 @@ Los tests usan SQLite en memoria y no requieren base externa.
 
 Copia `.env.example` a `.env`. Variables principales:
 
-| Variable | Default | Descripción |
-| --- | --- | --- |
-| `DATABASE_URL` | `sqlite+aiosqlite:///./xmip.db` | URL async de SQLAlchemy. Para PostgreSQL: `postgresql+asyncpg://user:pass@host:5432/xmip` |
-| `AUTO_CREATE_TABLES` | `true` | Crea tablas al arrancar solo en local/dev/test cuando no se usan migraciones |
-| `ENVIRONMENT` | `local` | `local` / `dev` / `staging` / `prod` / `test` |
-| `CORS_ORIGINS` | `["http://localhost:5173"]` | Orígenes permitidos |
-| `LOG_LEVEL` | `INFO` | Nivel de logging |
+| Variable               | Default                           | Descripción                                                                               |
+| ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `DATABASE_URL`       | `sqlite+aiosqlite:///./xmip.db` | URL async de SQLAlchemy. Para PostgreSQL:`postgresql+asyncpg://user:pass@host:5432/xmip` |
+| `AUTO_CREATE_TABLES` | `true`                          | Crea tablas al arrancar solo en local/dev/test cuando no se usan migraciones               |
+| `ENVIRONMENT`        | `local`                         | `local` / `dev` / `staging` / `prod` / `test`                                    |
+| `CORS_ORIGINS`       | `["http://localhost:5173"]`     | Orígenes permitidos                                                                       |
+| `LOG_LEVEL`          | `INFO`                          | Nivel de logging                                                                           |
+| `AUTH_ENABLED`       | `false`                         | Activa API key auth para endpoints de escritura                                            |
+| `API_KEY`            | `null`                          | Secreto esperado cuando `AUTH_ENABLED=true`                                                |
+| `API_KEY_HEADER_NAME` | `X-API-Key`                    | Header usado para enviar la API key                                                        |
+
+## Autorización mínima
+
+Por defecto `AUTH_ENABLED=false` para mantener simple el desarrollo local y los tests.
+Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
+
+- `POST /api/v1/news/intake`
+- `PATCH /api/v1/news/{news_id}/status`
+- `POST /api/v1/sources`
+- `POST /api/v1/agents/executions`
+- `POST /api/v1/audit/checks`
+
+Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
+
+Ejemplo:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/news/intake \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "title": "Bitcoin ETF sees record inflows",
+    "summary": "Institutional inflows reached a new daily record.",
+    "category": "markets",
+    "priority": "P1",
+    "source_url": "https://example.com/etf-inflows",
+    "source_name": "Example Wire"
+  }'
+```
+
+Respuestas esperadas con auth activa:
+
+- Sin header: HTTP 401, `Missing API key`
+- Header incorrecto: HTTP 403, `Invalid API key`
+- `AUTH_ENABLED=true` sin `API_KEY`: HTTP 500 controlado de configuración
 
 ## Endpoints actuales
 
@@ -177,12 +216,70 @@ Una transición inválida responde con HTTP 400 y formato de error consistente:
 }
 ```
 
+## Editorial gates
+
+Los estados críticos requieren el último `AuditCheck` válido de la noticia:
+
+```text
+approved
+scheduled
+published
+```
+
+Un `AuditCheck` válido debe cumplir:
+
+```text
+entity_type = news_item o NewsItem
+entity_id = id de la noticia
+ready_to_advance = true
+publication_block_recommended = false
+audit_status = passed o passed_with_warnings
+decision_recommendation = allow_to_continue o allow_with_warnings
+```
+
+Si el último `AuditCheck` compatible no cumple esas condiciones, el cambio de estado
+responde HTTP 409:
+
+```json
+{
+  "success": false,
+  "error": "NewsItem cannot transition to published without a passing AuditCheck",
+  "correlation_id": "corr_..."
+}
+```
+
+Flujo editorial protegido:
+
+```text
+reviewing -> approved -> scheduled -> published
+```
+
+Antes de avanzar a cada estado crítico debe existir un `AuditCheck` vigente y válido.
+Ejemplo para habilitar `reviewing -> approved`:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/audit/checks \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "entity_type": "news_item",
+    "entity_id": "NEWS_ITEM_ID",
+    "audit_status": "passed",
+    "severity": "medium",
+    "decision_recommendation": "allow_to_continue",
+    "ready_to_advance": true,
+    "publication_block_recommended": false,
+    "missing_requirements": [],
+    "audit_flags": []
+  }'
+```
+
 ## Arquitectura
 
 ```text
 app/
 ├── api/v1/endpoints/   # Routers HTTP, sin lógica de negocio
-├── core/               # Config, constantes, errores, middleware, state machine
+├── core/               # Config, auth, gates, errores, middleware, state machine
 ├── db/                 # Engine, sesión async, init local/test
 ├── models/             # Entidades SQLAlchemy
 ├── schemas/            # Pydantic request/response
@@ -197,12 +294,15 @@ Reglas de separación:
 - Schemas no son entidades persistentes.
 - Migraciones no dependen de `AUTO_CREATE_TABLES`.
 - Agentes no publican directamente.
+- Auth vive como dependency reutilizable, no como lógica duplicada en routers.
+- Gates editoriales viven en core/services, no en endpoints.
 
 ## Trazabilidad y reglas editoriales ORION
 
 - Nada se publica sin fuente: `source_url` y `source_name` son obligatorios en news intake.
 - Nada sensible se publica sin verificación: `published` solo se alcanza desde `scheduled`.
 - Nada crítico se publica sin aprobación: `scheduled` solo se alcanza desde `approved`.
+- Los estados `approved`, `scheduled` y `published` requieren `AuditCheck` vigente y válido.
 - Nada publicado queda sin registro: entidades persistidas guardan `correlation_id`.
 - La memoria no es fuente factual: no existe endpoint que convierta memoria en fuente.
 - Un output de agente no es fuente: `AgentExecution` registra ejecución, no evidencia editorial.
@@ -220,8 +320,8 @@ git commit -m "chore: initialize ORION XMIP repository with backend MVP"
 
 ## Pendientes técnicos
 
-- Autenticación/autorización para agentes y humanos.
+- Autenticación completa para agentes y humanos.
 - Roles y permisos editoriales (`ADMIN`, `EDITOR`, `VIEWER`, etc.).
 - Endpoints de workflows, memoria editorial, métricas y calendario.
-- Auditorías que bloqueen transiciones críticas con evidencia insuficiente.
+- Gates más específicos por severidad, categoría, fuente y riesgo editorial.
 - Pipeline CI con tests, lint y migraciones.

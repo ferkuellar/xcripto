@@ -50,7 +50,6 @@ SOURCE_STATUSES = {
 
 TRUST_LEVELS = {"T0", "T1", "T2", "T3"}
 
-AUDIT_STATUSES = {"pass", "fail", "warning", "pending"}
+AUDIT_STATUSES = {"pass", "fail", "warning", "pending", "passed", "passed_with_warnings", "failed"}
 AUDIT_SEVERITIES = {"low", "medium", "high", "critical"}
 NEWS_PRIORITIES = {"P0", "P1", "P2", "P3", "P4"}
-

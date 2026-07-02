@@ -15,9 +15,11 @@ class Settings(BaseSettings):
     auto_create_tables: bool = True
     cors_origins: list[str] = Field(default_factory=lambda: ["http://localhost:5173"])
     log_level: str = "INFO"
+    auth_enabled: bool = False
+    api_key: str | None = None
+    api_key_header_name: str = "X-API-Key"
 
 
 @lru_cache
 def get_settings() -> Settings:
     return Settings()
-

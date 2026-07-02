@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.security import require_api_key
 from app.db.session import get_session
 from app.schemas.audit_check import AuditCheckCreate, AuditCheckRead
 from app.services import audit_check_service
@@ -11,7 +12,12 @@ router = APIRouter(prefix="/audit/checks", tags=["audit-checks"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("", response_model=AuditCheckRead, status_code=201)
+@router.post(
+    "",
+    response_model=AuditCheckRead,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
 async def create_audit_check(
     payload: AuditCheckCreate,
     request: Request,

@@ -14,6 +14,11 @@ class DomainValidationError(HTTPException):
         super().__init__(status_code=400, detail=message)
 
 
+class ConflictError(HTTPException):
+    def __init__(self, message: str) -> None:
+        super().__init__(status_code=409, detail=message)
+
+
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     return JSONResponse(
         status_code=exc.status_code,
@@ -37,4 +42,3 @@ async def validation_exception_handler(
             "correlation_id": getattr(request.state, "correlation_id", None),
         },
     )
-
