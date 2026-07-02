@@ -121,6 +121,9 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `PATCH /api/v1/distribution-plans/{distribution_plan_id}/status`
 - `POST /api/v1/publication-records`
 - `PATCH /api/v1/publication-records/{publication_record_id}/status`
+- `POST /api/v1/workflows/news/{news_id}/start`
+- `POST /api/v1/workflows/{workflow_run_id}/recalculate`
+- `POST /api/v1/workflows/{workflow_run_id}/advance`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -216,6 +219,15 @@ Respuestas esperadas con auth activa:
 - `GET /api/v1/news/{news_id}/publication-records`
 - `PATCH /api/v1/publication-records/{publication_record_id}/status`
 
+### Workflows
+
+- `POST /api/v1/workflows/news/{news_id}/start`
+- `GET /api/v1/workflows` - filtros `news_item_id`, `status`, `workflow_type`, `current_step`, `limit`, `offset`
+- `GET /api/v1/workflows/{workflow_run_id}`
+- `GET /api/v1/news/{news_id}/workflow`
+- `POST /api/v1/workflows/{workflow_run_id}/recalculate`
+- `POST /api/v1/workflows/{workflow_run_id}/advance`
+
 ## Editorial Core
 
 Fase 4 agrega las entidades centrales para convertir una señal noticiosa en contenido
@@ -229,6 +241,96 @@ NewsItem
 -> DistributionPlan
 -> PublicationRecord
 ```
+
+## Workflow Orchestration
+
+Fase 5 agrega `WorkflowRun` y `WorkflowStep` para orquestar el flujo editorial sin
+crear automáticamente entidades editoriales ni ejecutar integraciones externas.
+
+Un workflow responde:
+
+- En qué etapa está la noticia.
+- Qué entidades editoriales ya existen.
+- Qué requisitos faltan.
+- Qué bloquea el avance.
+- Qué acción y agente se recomiendan después.
+
+Flujo orquestado:
+
+```text
+NewsItem
+-> VerificationRecord
+-> RiskReview
+-> ContentPiece
+-> AuditCheck
+-> DistributionPlan
+-> PublicationRecord
+-> measurement
+```
+
+### Readiness
+
+- `not_ready`: faltan verificación o riesgo.
+- `partially_ready`: hay verificación/riesgo, pero falta contenido.
+- `ready_for_review`: hay contenido, pero falta `AuditCheck`.
+- `ready_to_advance`: hay `AuditCheck` válido y distribución/publicación pendiente.
+- `blocked`: hay riesgo, auditoría, contenido, distribución o publicación bloqueante.
+- `completed`: existe `PublicationRecord` publicado y no hay bloqueos críticos.
+
+### Bloqueos
+
+El workflow queda bloqueado si detecta:
+
+- `VerificationRecord` `contradicted` o `rejected`.
+- `VerificationRecord` `rumor`.
+- `RiskReview.publication_block_recommended=true`.
+- `RiskReview.decision_recommendation=block_publication` o `reject`.
+- `RiskReview.risk_level=critical`.
+- `ContentPiece.status=blocked` o `rejected`.
+- `DistributionPlan.status=blocked` o `rejected`.
+- `PublicationRecord.publication_status=retracted`.
+- `AuditCheck.publication_block_recommended=true`.
+
+### Flujo ejemplo
+
+1. Crear `NewsItem`.
+2. Crear workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/workflows/news/NEWS_ITEM_ID/start \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"workflow_type": "editorial_pipeline"}'
+```
+
+3. Recalcular workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/workflows/WORKFLOW_RUN_ID/recalculate \
+  -H "X-API-Key: dev-secret"
+```
+
+4. Crear `VerificationRecord`.
+5. Crear `RiskReview`.
+6. Crear `ContentPiece`.
+7. Crear `AuditCheck`.
+8. Crear `DistributionPlan`.
+9. Crear `PublicationRecord`.
+10. Recalcular workflow.
+11. Consultar estado final:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/workflows/WORKFLOW_RUN_ID
+```
+
+Para intentar avanzar:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/workflows/WORKFLOW_RUN_ID/advance \
+  -H "X-API-Key: dev-secret"
+```
+
+Si faltan requisitos críticos o existe bloqueo editorial, responde HTTP 409.
 
 Las entidades nuevas mantienen `correlation_id`, timestamps y relaciones mínimas por foreign key.
 

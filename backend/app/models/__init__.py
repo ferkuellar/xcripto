@@ -7,6 +7,8 @@ from app.models.publication_record import PublicationRecord
 from app.models.risk_review import RiskReview
 from app.models.source_reference import SourceReference
 from app.models.verification_record import VerificationRecord
+from app.models.workflow_run import WorkflowRun
+from app.models.workflow_step import WorkflowStep
 
 __all__ = [
     "AgentExecution",
@@ -18,4 +20,6 @@ __all__ = [
     "RiskReview",
     "SourceReference",
     "VerificationRecord",
+    "WorkflowRun",
+    "WorkflowStep",
 ]

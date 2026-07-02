@@ -32,3 +32,12 @@ def test_editorial_core_alembic_migration_exists():
     assert "content_pieces" in migration_text
     assert "distribution_plans" in migration_text
     assert "publication_records" in migration_text
+
+
+def test_workflow_orchestration_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0003_add_workflow_orchestration.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "workflow_runs" in migration_text
+    assert "workflow_steps" in migration_text

@@ -148,3 +148,70 @@ PUBLICATION_STATUSES = {
     "retracted",
     "archived",
 }
+
+WORKFLOW_TYPES = {
+    "editorial_pipeline",
+    "breaking_news_pipeline",
+    "video_pipeline",
+    "social_pipeline",
+    "publication_pipeline",
+}
+WORKFLOW_RUN_STATUSES = {
+    "created",
+    "running",
+    "waiting_input",
+    "waiting_review",
+    "blocked",
+    "completed",
+    "cancelled",
+    "failed",
+    "escalated",
+}
+WORKFLOW_STEPS = {
+    "intake",
+    "source_review",
+    "verification",
+    "risk_review",
+    "content_creation",
+    "audit_review",
+    "distribution_planning",
+    "publication",
+    "measurement",
+    "memory_review",
+    "knowledge_update",
+    "completed",
+}
+WORKFLOW_READINESS_STATUSES = {
+    "not_ready",
+    "partially_ready",
+    "ready_for_review",
+    "ready_to_advance",
+    "blocked",
+    "completed",
+}
+WORKFLOW_NEXT_AGENTS = {
+    "NewsScoutAgent",
+    "SourceValidatorAgent",
+    "RiskAgent",
+    "MarketImpactAgent",
+    "EditorialAgent",
+    "ScriptAgent",
+    "SocialClipAgent",
+    "DistributionAgent",
+    "AuditAgent",
+    "CalendarAgent",
+    "MetricsAgent",
+    "MemoryAgent",
+    "KnowledgeAgent",
+    "None",
+}
+WORKFLOW_STEP_STATUSES = {
+    "pending",
+    "ready",
+    "running",
+    "waiting_dependency",
+    "completed",
+    "skipped",
+    "blocked",
+    "failed",
+}
