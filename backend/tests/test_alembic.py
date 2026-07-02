@@ -20,3 +20,15 @@ def test_initial_alembic_migration_exists():
     assert "source_references" in migration_text
     assert "agent_executions" in migration_text
     assert "audit_checks" in migration_text
+
+
+def test_editorial_core_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0002_add_editorial_core_entities.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "verification_records" in migration_text
+    assert "risk_reviews" in migration_text
+    assert "content_pieces" in migration_text
+    assert "distribution_plans" in migration_text
+    assert "publication_records" in migration_text

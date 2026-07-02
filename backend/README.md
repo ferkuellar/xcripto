@@ -113,6 +113,14 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `POST /api/v1/sources`
 - `POST /api/v1/agents/executions`
 - `POST /api/v1/audit/checks`
+- `POST /api/v1/verification-records`
+- `POST /api/v1/risk-reviews`
+- `POST /api/v1/content-pieces`
+- `PATCH /api/v1/content-pieces/{content_piece_id}/status`
+- `POST /api/v1/distribution-plans`
+- `PATCH /api/v1/distribution-plans/{distribution_plan_id}/status`
+- `POST /api/v1/publication-records`
+- `PATCH /api/v1/publication-records/{publication_record_id}/status`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -168,6 +176,178 @@ Respuestas esperadas con auth activa:
 - `POST /api/v1/audit/checks`
 - `GET /api/v1/audit/checks` - filtros `entity_type`, `entity_id`, `limit`, `offset`
 - `GET /api/v1/audit/checks/{audit_check_id}`
+
+### Verification Records
+
+- `POST /api/v1/verification-records`
+- `GET /api/v1/verification-records` - filtros `news_item_id`, `limit`, `offset`
+- `GET /api/v1/verification-records/{verification_record_id}`
+- `GET /api/v1/news/{news_id}/verification-records`
+
+### Risk Reviews
+
+- `POST /api/v1/risk-reviews`
+- `GET /api/v1/risk-reviews` - filtros `news_item_id`, `entity_type`, `entity_id`, `limit`, `offset`
+- `GET /api/v1/risk-reviews/{risk_review_id}`
+- `GET /api/v1/news/{news_id}/risk-reviews`
+
+### Content Pieces
+
+- `POST /api/v1/content-pieces`
+- `GET /api/v1/content-pieces` - filtros `news_item_id`, `status`, `limit`, `offset`
+- `GET /api/v1/content-pieces/{content_piece_id}`
+- `GET /api/v1/news/{news_id}/content-pieces`
+- `PATCH /api/v1/content-pieces/{content_piece_id}/status`
+
+### Distribution Plans
+
+- `POST /api/v1/distribution-plans`
+- `GET /api/v1/distribution-plans` - filtros `content_piece_id`, `news_item_id`, `status`, `limit`, `offset`
+- `GET /api/v1/distribution-plans/{distribution_plan_id}`
+- `GET /api/v1/content-pieces/{content_piece_id}/distribution-plans`
+- `PATCH /api/v1/distribution-plans/{distribution_plan_id}/status`
+
+### Publication Records
+
+- `POST /api/v1/publication-records`
+- `GET /api/v1/publication-records` - filtros `content_piece_id`, `news_item_id`, `limit`, `offset`
+- `GET /api/v1/publication-records/{publication_record_id}`
+- `GET /api/v1/content-pieces/{content_piece_id}/publication-records`
+- `GET /api/v1/news/{news_id}/publication-records`
+- `PATCH /api/v1/publication-records/{publication_record_id}/status`
+
+## Editorial Core
+
+Fase 4 agrega las entidades centrales para convertir una señal noticiosa en contenido
+editorial trazable:
+
+```text
+NewsItem
+-> VerificationRecord
+-> RiskReview
+-> ContentPiece
+-> DistributionPlan
+-> PublicationRecord
+```
+
+Las entidades nuevas mantienen `correlation_id`, timestamps y relaciones mínimas por foreign key.
+
+### Gates mínimos
+
+`ContentPiece` no puede crearse si:
+
+- `news_item_id` no existe.
+- `verification_status = unverified`.
+- `risk_level = critical`.
+
+`DistributionPlan` no puede crearse si:
+
+- `content_piece_id` no existe.
+- `ContentPiece.status = blocked`.
+- `ContentPiece.status = rejected`.
+
+`PublicationRecord` no puede crearse si:
+
+- `content_piece_id` no existe.
+- `distribution_plan_id` no existe.
+- `ContentPiece.status` no es `approved`.
+- `DistributionPlan.status` no es `scheduled` o `ready_for_review`.
+- `publication_status = published` y no hay `published_url` ni `external_id`.
+
+### Flujo ejemplo
+
+Crear verificación:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/verification-records \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "news_item_id": "NEWS_ITEM_ID",
+    "verification_status": "verified",
+    "evidence_level": "E3",
+    "confidence_level": "C4",
+    "summary": "Confirmed against primary and secondary sources.",
+    "verified_claims": ["ETF inflows increased"],
+    "unverified_claims": [],
+    "contradictions": [],
+    "source_refs": ["https://example.com/etf-inflows"]
+  }'
+```
+
+Crear revisión de riesgo:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/risk-reviews \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "news_item_id": "NEWS_ITEM_ID",
+    "entity_type": "news_item",
+    "entity_id": "NEWS_ITEM_ID",
+    "risk_level": "medium",
+    "severity": "R-SEV-1",
+    "decision_recommendation": "allow_with_minor_edits",
+    "summary": "Market-sensitive but publishable with neutral language."
+  }'
+```
+
+Crear pieza editorial:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/content-pieces \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "news_item_id": "NEWS_ITEM_ID",
+    "content_type": "news_article",
+    "title": "Bitcoin ETF inflows hit new record",
+    "summary": "A concise editorial summary.",
+    "body": "Institutional inflows into spot BTC ETFs reached a new daily record.",
+    "status": "approved",
+    "category": "markets",
+    "priority": "P1",
+    "verification_status": "verified",
+    "risk_level": "medium",
+    "source_refs": ["https://example.com/etf-inflows"]
+  }'
+```
+
+Crear plan de distribución:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/distribution-plans \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "content_piece_id": "CONTENT_PIECE_ID",
+    "news_item_id": "NEWS_ITEM_ID",
+    "primary_channel": "Blog / Web",
+    "secondary_channels": ["LinkedIn", "X / Twitter"],
+    "distribution_type": "primary_publication",
+    "status": "scheduled",
+    "dependencies": [],
+    "metric_plan": {"primary_metric": "views"},
+    "risk_level": "medium",
+    "publication_readiness": "ready"
+  }'
+```
+
+Crear registro de publicación:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/publication-records \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "content_piece_id": "CONTENT_PIECE_ID",
+    "distribution_plan_id": "DISTRIBUTION_PLAN_ID",
+    "news_item_id": "NEWS_ITEM_ID",
+    "channel": "Blog / Web",
+    "publication_status": "published",
+    "published_url": "https://example.com/published/story"
+  }'
+```
 
 ## Máquina de estados editorial
 
