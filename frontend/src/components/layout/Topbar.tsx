@@ -17,21 +17,30 @@ const operationalDate = new Date().toLocaleDateString('es-MX', {
 
 export function Topbar() {
   const [showNotifications, setShowNotifications] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const unread = notifications.filter((n) => n.unread).length
   const navigate = useNavigate()
   const { status: backendStatus, info } = useBackendHealth()
 
+  function submitSearch(e: React.FormEvent) {
+    e.preventDefault()
+    const term = searchTerm.trim()
+    navigate(term ? `/news?q=${encodeURIComponent(term)}` : '/news')
+  }
+
   return (
     <header className="glass sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-line px-4">
-      {/* Global search */}
-      <div className="relative w-full max-w-sm">
+      {/* Global search → News Feed */}
+      <form onSubmit={submitSearch} className="relative w-full max-w-sm" role="search">
         <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-muted" />
         <input
-          placeholder="Buscar noticias, fuentes, agentes…"
-          aria-label="Buscar en el newsroom"
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          placeholder="Buscar noticias… (Enter para ir al feed)"
+          aria-label="Buscar noticias en el feed"
           className="h-9 w-full rounded-lg border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-ink-muted focus:outline-none focus:ring-1 focus:ring-accent-cyan/50"
         />
-      </div>
+      </form>
 
       <div className="ml-auto flex items-center gap-2">
         {/* Estado del sistema — vivo, desde GET /health */}

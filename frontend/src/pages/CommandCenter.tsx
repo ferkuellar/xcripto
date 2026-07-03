@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Activity, FileText, Radar, ShieldAlert } from 'lucide-react'
+import { Activity, ArrowRight, FileText, Radar, ShieldAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { PipelineBoard } from '@/components/newsroom/PipelineBoard'
 import { AgentActivity } from '@/components/agents/AgentActivity'
@@ -152,10 +152,19 @@ export default function CommandCenter() {
 
       {/* Últimas noticias reales */}
       <section>
-        <SectionHeader
-          title="Últimas noticias registradas"
-          subtitle="Piezas más recientes del backend XMIP con estado editorial"
-        />
+        <div className="flex items-start justify-between gap-3">
+          <SectionHeader
+            title="Últimas noticias registradas"
+            subtitle="Piezas más recientes del backend XMIP con estado editorial"
+          />
+          <Link
+            to="/news"
+            className="inline-flex shrink-0 items-center gap-1 text-xs text-accent-cyan transition-colors hover:text-ink"
+          >
+            Ver todo el feed
+            <ArrowRight className="h-3.5 w-3.5" />
+          </Link>
+        </div>
         {news.error && <ErrorState error={news.error} onRetry={news.refetch} />}
         {!news.error && newsItems.length === 0 && !news.loading && (
           <p className="card-surface p-5 text-center text-xs text-ink-muted">

@@ -6,6 +6,7 @@ import { AppShell } from '@/components/layout/AppShell'
 // el bundle inicial (recharts y framer-motion solo se descargan donde se usan).
 const CommandCenter = lazy(() => import('@/pages/CommandCenter'))
 const NewsIntake = lazy(() => import('@/pages/NewsIntake'))
+const NewsFeedPage = lazy(() => import('@/pages/NewsFeedPage'))
 const NewsDetailPage = lazy(() => import('@/pages/NewsDetailPage'))
 const SourceValidation = lazy(() => import('@/pages/SourceValidation'))
 const RiskReviewPage = lazy(() => import('@/pages/RiskReviewPage'))
@@ -69,6 +70,14 @@ function App() {
             element={
               <Suspense fallback={<RouteFallback />}>
                 <NewsIntake />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/news"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <NewsFeedPage />
               </Suspense>
             }
           />
