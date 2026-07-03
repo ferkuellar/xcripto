@@ -1,5 +1,5 @@
 
-# Prompt-SourceValidatorAgent
+# GPT SourceValidatorAgent
 
 **Nivel documental:** L4 — Operations / Prompt
 **Volumen:** 007-prompts
@@ -8,7 +8,7 @@
 **Estado:** Draft
 **Owner:** Fernando Cuellar
 **Última actualización:** 2026-07-02
-**Ruta sugerida:** `docs/007-prompts/gpt/Prompt-SourceValidatorAgent.md`
+**Ruta sugerida:** `docs/007-prompts/gpt/GPT-SourceValidatorAgent.md`
 
 ---
 
@@ -921,12 +921,12 @@ Este prompt se considera aceptado cuando:
 
 Este prompt se relaciona directamente con:
 
-* `Prompt-NewsScoutAgent.md`
-* `Prompt-MarketImpactAgent.md`
-* `Prompt-RiskAgent.md`
-* `Prompt-EditorialAgent.md`
-* `Prompt-AuditAgent.md`
-* `Prompt-MemoryAgent.md`
+* `GPT-NewsScoutAgent.md`
+* `GPT-MarketImpactAgent.md`
+* `GPT-RiskAgent.md`
+* `GPT-EditorialAgent.md`
+* `GPT-AuditAgent.md`
+* `GPT-MemoryAgent.md`
 
 SourceValidatorAgent normalmente debe ejecutarse después de:
 

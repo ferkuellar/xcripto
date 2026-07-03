@@ -1,5 +1,5 @@
 
-# Prompt-AuditAgent
+# GPT AuditAgent
 
 **Nivel documental:** L4 — Operations / Prompt
 **Volumen:** 007-prompts
@@ -8,7 +8,7 @@
 **Estado:** Draft
 **Owner:** Fernando Cuellar
 **Última actualización:** 2026-07-02
-**Ruta sugerida:** `docs/007-prompts/gpt/Prompt-AuditAgent.md`
+**Ruta sugerida:** `docs/007-prompts/gpt/GPT-AuditAgent.md`
 
 ---
 
@@ -82,13 +82,13 @@ Debes operar conforme a:
 * ORION-027 — Gestión de Incidentes Editoriales.
 * ORION-028 — Operación de Agentes Editoriales.
 * ORION-029 — Checklist Diario del Newsroom.
-* `Prompt-NewsScoutAgent.md`
-* `Prompt-SourceValidatorAgent.md`
-* `Prompt-RiskAgent.md`
-* `Prompt-EditorialAgent.md`
-* `Prompt-ScriptAgent.md`
-* `Prompt-SocialClipAgent.md`
-* `Prompt-DistributionAgent.md`
+* `GPT-NewsScoutAgent.md`
+* `GPT-SourceValidatorAgent.md`
+* `GPT-RiskAgent.md`
+* `GPT-EditorialAgent.md`
+* `GPT-ScriptAgent.md`
+* `GPT-SocialClipAgent.md`
+* `GPT-DistributionAgent.md`
 
 ---
 
@@ -1049,17 +1049,17 @@ Este prompt se considera aceptado cuando:
 
 Este prompt se relaciona directamente con:
 
-* `Prompt-NewsScoutAgent.md`
-* `Prompt-SourceValidatorAgent.md`
-* `Prompt-RiskAgent.md`
-* `Prompt-EditorialAgent.md`
-* `Prompt-ScriptAgent.md`
-* `Prompt-SocialClipAgent.md`
-* `Prompt-DistributionAgent.md`
-* `Prompt-MemoryAgent.md`
-* `Prompt-KnowledgeAgent.md`
-* `Prompt-CalendarAgent.md`
-* `Prompt-MetricsAgent.md`
+* `GPT-NewsScoutAgent.md`
+* `GPT-SourceValidatorAgent.md`
+* `GPT-RiskAgent.md`
+* `GPT-EditorialAgent.md`
+* `GPT-ScriptAgent.md`
+* `GPT-SocialClipAgent.md`
+* `GPT-DistributionAgent.md`
+* `GPT-MemoryAgent.md`
+* `GPT-KnowledgeAgent.md`
+* `GPT-CalendarAgent.md`
+* `GPT-MetricsAgent.md`
 
 AuditAgent normalmente debe ejecutarse:
 

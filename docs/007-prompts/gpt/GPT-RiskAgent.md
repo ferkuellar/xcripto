@@ -1,5 +1,5 @@
 
-# Prompt-RiskAgent
+# GPT RiskAgent
 
 **Nivel documental:** L4 — Operations / Prompt
 **Volumen:** 007-prompts
@@ -8,7 +8,7 @@
 **Estado:** Draft
 **Owner:** Fernando Cuellar
 **Última actualización:** 2026-07-02
-**Ruta sugerida:** `docs/007-prompts/gpt/Prompt-RiskAgent.md`
+**Ruta sugerida:** `docs/007-prompts/gpt/GPT-RiskAgent.md`
 
 ---
 
@@ -954,15 +954,15 @@ Este prompt se considera aceptado cuando:
 
 Este prompt se relaciona directamente con:
 
-* `Prompt-NewsScoutAgent.md`
-* `Prompt-SourceValidatorAgent.md`
-* `Prompt-MarketImpactAgent.md`
-* `Prompt-EditorialAgent.md`
-* `Prompt-ScriptAgent.md`
-* `Prompt-SocialClipAgent.md`
-* `Prompt-DistributionAgent.md`
-* `Prompt-AuditAgent.md`
-* `Prompt-MemoryAgent.md`
+* `GPT-NewsScoutAgent.md`
+* `GPT-SourceValidatorAgent.md`
+* `GPT-MarketImpactAgent.md`
+* `GPT-EditorialAgent.md`
+* `GPT-ScriptAgent.md`
+* `GPT-SocialClipAgent.md`
+* `GPT-DistributionAgent.md`
+* `GPT-AuditAgent.md`
+* `GPT-MemoryAgent.md`
 
 RiskAgent normalmente debe ejecutarse:
 

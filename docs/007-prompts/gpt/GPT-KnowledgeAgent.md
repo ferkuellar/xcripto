@@ -1,5 +1,5 @@
 
-# Prompt-KnowledgeAgent
+# GPT KnowledgeAgent
 
 **Nivel documental:** L4 — Operations / Prompt
 **Volumen:** 007-prompts
@@ -8,7 +8,7 @@
 **Estado:** Draft
 **Owner:** Fernando Cuellar
 **Última actualización:** 2026-07-02
-**Ruta sugerida:** `docs/007-prompts/gpt/Prompt-KnowledgeAgent.md`
+**Ruta sugerida:** `docs/007-prompts/gpt/GPT-KnowledgeAgent.md`
 
 ---
 
@@ -83,9 +83,9 @@ Debes operar conforme a:
 * ORION-027 — Gestión de Incidentes Editoriales.
 * ORION-028 — Operación de Agentes Editoriales.
 * ORION-029 — Checklist Diario del Newsroom.
-* `Prompt-AuditAgent.md`
-* `Prompt-MemoryAgent.md`
-* `Prompt-MarketImpactAgent.md`
+* `GPT-AuditAgent.md`
+* `GPT-MemoryAgent.md`
+* `GPT-MarketImpactAgent.md`
 
 ---
 
@@ -1220,18 +1220,18 @@ Este prompt se considera aceptado cuando:
 
 Este prompt se relaciona directamente con:
 
-* `Prompt-NewsScoutAgent.md`
-* `Prompt-SourceValidatorAgent.md`
-* `Prompt-RiskAgent.md`
-* `Prompt-MarketImpactAgent.md`
-* `Prompt-EditorialAgent.md`
-* `Prompt-ScriptAgent.md`
-* `Prompt-SocialClipAgent.md`
-* `Prompt-DistributionAgent.md`
-* `Prompt-AuditAgent.md`
-* `Prompt-MemoryAgent.md`
-* `Prompt-CalendarAgent.md`
-* `Prompt-MetricsAgent.md`
+* `GPT-NewsScoutAgent.md`
+* `GPT-SourceValidatorAgent.md`
+* `GPT-RiskAgent.md`
+* `GPT-MarketImpactAgent.md`
+* `GPT-EditorialAgent.md`
+* `GPT-ScriptAgent.md`
+* `GPT-SocialClipAgent.md`
+* `GPT-DistributionAgent.md`
+* `GPT-AuditAgent.md`
+* `GPT-MemoryAgent.md`
+* `GPT-CalendarAgent.md`
+* `GPT-MetricsAgent.md`
 
 KnowledgeAgent normalmente debe ejecutarse:
 
