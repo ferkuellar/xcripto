@@ -34,7 +34,14 @@ interface RequestOptions {
   signal?: AbortSignal
 }
 
-async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+export interface ApiResult<T> {
+  data: T
+  headers: Headers
+  status: number
+  correlationId: string | null
+}
+
+async function requestWithMeta<T>(path: string, options: RequestOptions = {}): Promise<ApiResult<T>> {
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), DEFAULT_TIMEOUT_MS)
   options.signal?.addEventListener('abort', () => controller.abort(), { once: true })
@@ -79,12 +86,23 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     throw new ApiError(message, response.status, correlationId)
   }
 
-  return (await response.json()) as T
+  return {
+    data: (await response.json()) as T,
+    headers: response.headers,
+    status: response.status,
+    correlationId: response.headers.get('X-Correlation-ID'),
+  }
+}
+
+async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  return (await requestWithMeta<T>(path, options)).data
 }
 
 export const api = {
   baseUrl: BASE_URL,
   get: <T>(path: string, signal?: AbortSignal) => request<T>(path, { signal }),
+  /** Como get(), pero devuelve también headers/status (p. ej. X-Total-Count). */
+  getWithMeta: <T>(path: string, signal?: AbortSignal) => requestWithMeta<T>(path, { signal }),
   post: <T>(path: string, body?: unknown) => request<T>(path, { method: 'POST', body }),
   patch: <T>(path: string, body?: unknown) => request<T>(path, { method: 'PATCH', body }),
 }

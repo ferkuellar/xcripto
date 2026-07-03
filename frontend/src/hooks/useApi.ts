@@ -50,6 +50,54 @@ export function useApiQuery<T>(path: string): QueryState<T> {
   return { data, loading, error, refetch }
 }
 
+export interface ListQueryState<T> extends QueryState<T> {
+  /** Total filtrado desde X-Total-Count; null si el backend no lo envía (degradar). */
+  totalCount: number | null
+}
+
+/**
+ * Variante de useApiQuery para listados paginados: expone el total filtrado
+ * del header X-Total-Count cuando el backend lo devuelve.
+ */
+export function useApiListQuery<T>(path: string): ListQueryState<T> {
+  const [data, setData] = useState<T | null>(null)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<ApiError | null>(null)
+  const [tick, setTick] = useState(0)
+  const abortRef = useRef<AbortController | null>(null)
+
+  useEffect(() => {
+    abortRef.current?.abort()
+    const controller = new AbortController()
+    abortRef.current = controller
+    setLoading(true)
+    setError(null)
+
+    api
+      .getWithMeta<T>(path, controller.signal)
+      .then((result) => {
+        if (!controller.signal.aborted) {
+          setData(result.data)
+          const total = result.headers.get('X-Total-Count')
+          setTotalCount(total !== null && !Number.isNaN(Number(total)) ? Number(total) : null)
+          setLoading(false)
+        }
+      })
+      .catch((err: unknown) => {
+        if (controller.signal.aborted) return
+        setError(err instanceof ApiError ? err : new ApiError(String(err), 0))
+        setLoading(false)
+      })
+
+    return () => controller.abort()
+  }, [path, tick])
+
+  const refetch = useCallback(() => setTick((t) => t + 1), [])
+
+  return { data, totalCount, loading, error, refetch }
+}
+
 export type BackendStatus = 'checking' | 'online' | 'offline'
 
 /** Estado vivo del backend vía GET /health, con re-chequeo periódico. */
