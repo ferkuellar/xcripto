@@ -50,7 +50,16 @@ SOURCE_STATUSES = {
 
 TRUST_LEVELS = {"T0", "T1", "T2", "T3"}
 
-AUDIT_STATUSES = {"pass", "fail", "warning", "pending", "passed", "passed_with_warnings", "failed"}
+# Catálogo canónico, alineado con editorial_gates.PASSING_AUDIT_STATUSES.
+# Los valores legacy "pass"/"fail" se rechazan a propósito: parecían
+# aprobatorios pero nunca satisfacían los gates editoriales.
+AUDIT_STATUSES = {"passed", "passed_with_warnings", "failed", "warning", "pending", "blocked"}
+AUDIT_DECISION_RECOMMENDATIONS = {
+    "allow_to_continue",
+    "allow_with_warnings",
+    "needs_revision",
+    "block_publication",
+}
 AUDIT_SEVERITIES = {"low", "medium", "high", "critical"}
 NEWS_PRIORITIES = {"P0", "P1", "P2", "P3", "P4"}
 

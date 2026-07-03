@@ -154,3 +154,20 @@ async def test_audit_check_with_failed_status_blocks(client):
     response = await update_status(client, news["id"], "approved")
 
     assert response.status_code == 409
+
+
+# --- Regression P1 fix #2: un solo contrato entre catalogo y gates ---
+
+
+def test_gate_catalogs_are_subsets_of_canonical_constants():
+    from app.core.constants import AUDIT_DECISION_RECOMMENDATIONS, AUDIT_STATUSES
+    from app.core.editorial_gates import (
+        PASSING_AUDIT_STATUSES,
+        PASSING_DECISION_RECOMMENDATIONS,
+    )
+
+    assert PASSING_AUDIT_STATUSES <= AUDIT_STATUSES
+    assert PASSING_DECISION_RECOMMENDATIONS <= AUDIT_DECISION_RECOMMENDATIONS
+    # Los valores legacy no deben volver a colarse al catalogo.
+    assert "pass" not in AUDIT_STATUSES
+    assert "fail" not in AUDIT_STATUSES
