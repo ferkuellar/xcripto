@@ -4,6 +4,8 @@ from app.models.audit_check import AuditCheck
 from app.models.content_piece import ContentPiece
 from app.models.distribution_plan import DistributionPlan
 from app.models.editorial_readiness_score import EditorialReadinessScore
+from app.models.external_connector import ExternalConnector
+from app.models.external_connector_run import ExternalConnectorRun
 from app.models.intake_adapter_run import IntakeAdapterRun
 from app.models.intake_signal import IntakeSignal
 from app.models.knowledge_edge import KnowledgeEdge
@@ -29,6 +31,8 @@ __all__ = [
     "ContentPiece",
     "DistributionPlan",
     "EditorialReadinessScore",
+    "ExternalConnector",
+    "ExternalConnectorRun",
     "IntakeAdapterRun",
     "IntakeSignal",
     "KnowledgeEdge",

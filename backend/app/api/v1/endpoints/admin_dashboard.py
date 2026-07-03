@@ -20,7 +20,13 @@ from app.schemas.admin_dashboard import (
     TaskBoardItem,
     UserWorkload,
 )
-from app.services import admin_dashboard_service, agent_runner_service, operational_audit_service
+from app.schemas.external_connector import AdminConnectorsSummary
+from app.services import (
+    admin_dashboard_service,
+    agent_runner_service,
+    external_connector_service,
+    operational_audit_service,
+)
 
 router = APIRouter(
     prefix="/admin",
@@ -163,3 +169,13 @@ async def audit_summary(session: SessionDep) -> AdminAuditSummary:
 async def agent_runner_summary(session: SessionDep) -> AdminAgentRunnerSummary:
     summary = await agent_runner_service.get_admin_agent_runner_summary(session)
     return AdminAgentRunnerSummary.model_validate(summary.model_dump())
+
+
+@router.get(
+    "/connectors/summary",
+    response_model=AdminConnectorsSummary,
+    dependencies=[Depends(require_permission("connector.read"))],
+)
+async def connectors_summary(session: SessionDep) -> AdminConnectorsSummary:
+    summary = await external_connector_service.get_admin_connectors_summary(session)
+    return AdminConnectorsSummary.model_validate(summary.model_dump())

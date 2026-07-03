@@ -18,6 +18,8 @@ Fase 14 endurece configuración, CORS, logging estructurado, health/readiness,
 Docker, smoke tests y documentación operativa para deploy del MVP.
 Fase 15 agrega un Internal Agent Runner síncrono y determinístico para ejecutar
 `WorkflowTask` elegibles sin modelos reales ni integraciones externas.
+Fase 16 agrega External Connector Interfaces para registrar contratos de conectores
+futuros, validar configuración segura y ejecutar dry-runs locales sin llamadas externas.
 
 ## Stack
 
@@ -176,6 +178,13 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `PATCH /api/v1/ownership/{ownership_id}/release`
 - `PATCH /api/v1/ownership/{ownership_id}/transfer`
 - `POST /api/v1/operational-audit/events`
+- `POST /api/v1/connectors`
+- `PATCH /api/v1/connectors/{connector_id}`
+- `PATCH /api/v1/connectors/{connector_id}/enable`
+- `PATCH /api/v1/connectors/{connector_id}/disable`
+- `PATCH /api/v1/connectors/{connector_id}/archive`
+- `POST /api/v1/connectors/{connector_id}/validate`
+- `POST /api/v1/connectors/{connector_id}/dry-run`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -511,6 +520,7 @@ Si la DB no responde, `/ready` devuelve HTTP 503 con `status=not_ready`.
 - `GET /api/v1/admin/users/{user_id}/workload`
 - `GET /api/v1/admin/gaps`
 - `GET /api/v1/admin/audit/summary`
+- `GET /api/v1/admin/connectors/summary`
 
 ### Operational Audit Log
 
@@ -1903,6 +1913,8 @@ La suite actual valida:
   smoke test, Docker y documentación operativa.
 - Internal Agent Runner: dry-run, ejecución local determinística, `AgentExecution`,
   `AgentOutput`, completion de `WorkflowTask` y audit operacional.
+- External Connector Interfaces: `ExternalConnector`, `ExternalConnectorRun`,
+  validación de contrato, dry-run local, RBAC, audit operacional y summary admin.
 
 ## Internal Agent Runner
 
@@ -2029,6 +2041,146 @@ Revisar trazabilidad:
 curl "http://127.0.0.1:8000/api/v1/agents/executions?agent_name=SourceValidatorAgent"
 curl "http://127.0.0.1:8000/api/v1/agent-outputs?agent_name=SourceValidatorAgent"
 curl "http://127.0.0.1:8000/api/v1/operational-audit/events?action=agent_runner.run_task" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+## External Connector Interfaces
+
+Fase 16 agrega `/api/v1/connectors` para preparar integraciones futuras sin
+activarlas todavía. Un `ExternalConnector` describe un contrato y configuración no
+sensible; un `ExternalConnectorRun` registra un intento lógico, validación o dry-run.
+
+Estos conectores no hacen scraping real, no llaman RSS/API/social/market data reales,
+no llaman LLMs, no publican y no crean entidades canónicas automáticamente. El dry-run
+solo produce `result_payload` local y auditable.
+
+### Catálogos
+
+`connector_type`:
+
+```text
+rss_feed
+public_api
+social_feed
+market_data
+llm_provider
+publishing_channel
+webhook_inbound
+file_import
+manual_import
+system
+```
+
+`auth_type`:
+
+```text
+none
+api_key_ref
+bearer_token_ref
+oauth_ref
+basic_ref
+signed_request_ref
+manual
+```
+
+`capabilities`:
+
+```text
+ingest_signals
+validate_sources
+fetch_market_context
+generate_agent_output
+publish_content
+schedule_content
+fetch_metrics
+receive_webhook
+import_file
+```
+
+### Seguridad de secretos
+
+`configuration` no puede contener claves como `api_key`, `token`, `secret`,
+`password`, `authorization`, `bearer`, `private_key` ni variantes definidas en
+`app/core/constants.py`. Usa `secret_ref` para apuntar a un secret manager futuro.
+No se guardan secretos en claro.
+
+### Endpoints
+
+- `POST /api/v1/connectors`
+- `GET /api/v1/connectors`
+- `GET /api/v1/connectors/{connector_id}`
+- `PATCH /api/v1/connectors/{connector_id}`
+- `PATCH /api/v1/connectors/{connector_id}/enable`
+- `PATCH /api/v1/connectors/{connector_id}/disable`
+- `PATCH /api/v1/connectors/{connector_id}/archive`
+- `POST /api/v1/connectors/{connector_id}/validate`
+- `POST /api/v1/connectors/{connector_id}/dry-run`
+- `GET /api/v1/connectors/{connector_id}/runs`
+- `GET /api/v1/connectors/runs/{run_id}`
+- `GET /api/v1/admin/connectors/summary`
+
+Permisos RBAC:
+
+```text
+connector.read
+connector.create
+connector.update
+connector.run
+connector.archive
+```
+
+`owner`, `admin` y `system` tienen todos los permisos. `editor_in_chief` y
+`agent_operator` pueden leer y ejecutar dry-runs. `analyst` y `reviewer` pueden leer.
+
+### Ejemplos curl
+
+Crear conector:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin" \
+  -d '{
+    "connector_name": "Example RSS",
+    "connector_type": "rss_feed",
+    "connector_status": "dry_run_only",
+    "provider": "example",
+    "base_url": "https://example.com/feed.xml",
+    "capabilities": ["ingest_signals"],
+    "auth_type": "none",
+    "enabled": false,
+    "dry_run_only": true
+  }'
+```
+
+Validar contrato:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/validate \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Dry-run:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/dry-run \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"run_type":"dry_run"}'
+```
+
+Runs y summary:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/runs \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+
+curl http://127.0.0.1:8000/api/v1/admin/connectors/summary \
   -H "X-API-Key: dev-secret" \
   -H "X-Actor-Role: admin"
 ```

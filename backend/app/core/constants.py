@@ -717,3 +717,75 @@ OPERATIONAL_AUDIT_DECISIONS = {
     "no_op",
     "error",
 }
+
+EXTERNAL_CONNECTOR_TYPES = {
+    "rss_feed",
+    "public_api",
+    "social_feed",
+    "market_data",
+    "llm_provider",
+    "publishing_channel",
+    "webhook_inbound",
+    "file_import",
+    "manual_import",
+    "system",
+}
+EXTERNAL_CONNECTOR_STATUSES = {
+    "draft",
+    "configured",
+    "disabled",
+    "dry_run_only",
+    "ready_for_review",
+    "blocked",
+    "archived",
+    "error",
+}
+EXTERNAL_CONNECTOR_AUTH_TYPES = {
+    "none",
+    "api_key_ref",
+    "bearer_token_ref",
+    "oauth_ref",
+    "basic_ref",
+    "signed_request_ref",
+    "manual",
+}
+EXTERNAL_CONNECTOR_CAPABILITIES = {
+    "ingest_signals",
+    "validate_sources",
+    "fetch_market_context",
+    "generate_agent_output",
+    "publish_content",
+    "schedule_content",
+    "fetch_metrics",
+    "receive_webhook",
+    "import_file",
+}
+EXTERNAL_CONNECTOR_RUN_TYPES = {
+    "dry_run",
+    "validation",
+    "manual_test",
+    "contract_test",
+    "simulation",
+}
+EXTERNAL_CONNECTOR_RUN_STATUSES = {
+    "created",
+    "running",
+    "completed",
+    "completed_with_warnings",
+    "failed",
+    "blocked",
+    "cancelled",
+}
+EXTERNAL_CONNECTOR_SECRET_KEYS = {
+    "api_key",
+    "apikey",
+    "token",
+    "access_token",
+    "refresh_token",
+    "secret",
+    "client_secret",
+    "password",
+    "authorization",
+    "bearer",
+    "private_key",
+}

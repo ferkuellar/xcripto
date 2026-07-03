@@ -157,6 +157,74 @@ Problemas comunes:
 - `blocked` con `force=false`: revisar `blocking_reason`; usar `force=true` solo con criterio operativo.
 - Output en `pending_review`: revisar `AgentOutput`; no usarlo como fuente factual ni aprobación.
 
+## External Connector Interfaces
+
+Los conectores externos son contratos y dry-runs locales. No hacen scraping real,
+no llaman APIs externas, no llaman LLMs y no publican. La configuracion sensible
+debe ir en `secret_ref`; `configuration` no debe contener `api_key`, `token`,
+`secret`, `password`, `authorization`, `bearer` ni claves similares.
+
+Crear conector registrado:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin" \
+  -d '{
+    "connector_name": "Example RSS",
+    "connector_type": "rss_feed",
+    "connector_status": "dry_run_only",
+    "provider": "example",
+    "base_url": "https://example.com/feed.xml",
+    "capabilities": ["ingest_signals"],
+    "auth_type": "none",
+    "enabled": false,
+    "dry_run_only": true
+  }'
+```
+
+Validar contrato:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/validate \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Ejecutar dry-run sin llamadas externas:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/dry-run \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"run_type":"dry_run"}'
+```
+
+Revisar runs, audit y summary:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/connectors/CONNECTOR_ID/runs \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+
+curl "http://127.0.0.1:8000/api/v1/operational-audit/events?action=connector.dry_run" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+
+curl http://127.0.0.1:8000/api/v1/admin/connectors/summary \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Problemas comunes:
+
+- HTTP 400 por secretos: mover el valor sensible a un secret manager futuro y guardar solo `secret_ref`.
+- HTTP 403: usar `admin`, `owner`, `system` o `agent_operator` segun la accion.
+- Dry-run bloqueado: revisar si el conector esta `archived`, `disabled`, `blocked` o `enabled=false`.
+- `auth_type` con referencia: `api_key_ref`, `bearer_token_ref`, `oauth_ref`, `basic_ref` y `signed_request_ref` deben tener `secret_ref`.
+
 ## Smoke Test
 
 ```bash

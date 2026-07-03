@@ -109,6 +109,32 @@ curl http://127.0.0.1:8000/api/v1/admin/agent-runner/summary \
 Do not configure external AI credentials for this phase. The runner is local,
 deterministic, and must not publish or approve content automatically.
 
+## External Connector Interfaces
+
+Validate connector read access:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/connectors \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Validate connector dashboard summary:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/connectors/summary \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Before enabling connector contracts in an environment:
+
+- Confirm no real external network calls are configured for this phase.
+- Store secrets only outside the database and reference them with `secret_ref`.
+- Keep `dry_run_only=true`; connectors are registered contracts, not active integrations.
+- Confirm `configuration` does not include `api_key`, `token`, `secret`, `password`, `authorization`, `bearer` or private keys.
+- Use `POST /api/v1/connectors/{connector_id}/validate` before dry-runs.
+
 ## Smoke Test
 
 ```bash
@@ -150,3 +176,5 @@ alembic downgrade -1
 - Operational audit logs are internal traces, not SIEM integration.
 - API key auth is minimal and will need user/session auth in a later phase.
 - No external workers, queues, AI integrations, analytics, or notification channels are enabled.
+- External connectors are dry-run interfaces only; they do not fetch, publish, scrape,
+  call LLMs, or create downstream canonical entities automatically.

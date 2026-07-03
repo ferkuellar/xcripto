@@ -41,6 +41,11 @@ PERMISSIONS = {
     "operational_audit.create",
     "agent_runner.read",
     "agent_runner.run",
+    "connector.read",
+    "connector.create",
+    "connector.update",
+    "connector.run",
+    "connector.archive",
 }
 
 EDITORIAL_APPROVAL_PERMISSIONS = {
@@ -104,6 +109,8 @@ AGENT_OPERATOR_PERMISSIONS = {
     "agent_output.reject",
     "agent_runner.read",
     "agent_runner.run",
+    "connector.read",
+    "connector.run",
     "workflow_task.create",
     "workflow_task.start",
     "workflow_task.complete",
@@ -120,15 +127,18 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS
     | {"admin.dashboard.read"}
     | {"agent_runner.read", "agent_runner.run"}
+    | {"connector.read", "connector.run"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "editor": EDITOR_PERMISSIONS | {"admin.dashboard.read", "agent_runner.read"},
     "analyst": ANALYST_PERMISSIONS
     | {"admin.dashboard.read"}
     | {"agent_runner.read"}
+    | {"connector.read"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "reviewer": REVIEWER_PERMISSIONS
     | {"admin.dashboard.read"}
     | {"agent_runner.read"}
+    | {"connector.read"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "publisher": PUBLISHER_PERMISSIONS | {"admin.dashboard.read", "agent_runner.read"},
     "agent_operator": AGENT_OPERATOR_PERMISSIONS | {"admin.dashboard.read"},
