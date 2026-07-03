@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from app.api.v1.endpoints import (
+    admin_dashboard,
     agent_executions,
     agent_outputs,
     audit_checks,
@@ -23,6 +24,7 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(admin_dashboard.router)
 api_router.include_router(news.router)
 api_router.include_router(sources.router)
 api_router.include_router(agent_executions.router)

@@ -11,6 +11,7 @@ Fase 10 agrega intake, normalización y deduplicación de señales candidatas an
 promoverlas a noticias.
 Fase 11 agrega usuarios internos, roles mínimos, ownership operativo y permisos por
 headers para acciones críticas.
+Fase 12 agrega read models administrativos para el futuro dashboard operativo.
 
 ## Stack
 
@@ -445,6 +446,98 @@ Respuesta esperada: HTTP 403 `Insufficient permission`.
 - `GET /api/v1/editorial-readiness/news/{news_id}/explain`
 - `GET /api/v1/editorial-readiness`
 - `GET /api/v1/editorial-readiness/{score_id}`
+
+### Admin Dashboard
+
+- `GET /api/v1/admin/dashboard/overview`
+- `GET /api/v1/admin/dashboard/newsroom-health`
+- `GET /api/v1/admin/intake/queue`
+- `GET /api/v1/admin/editorial/work-queue`
+- `GET /api/v1/admin/blockers`
+- `GET /api/v1/admin/readiness/board`
+- `GET /api/v1/admin/tasks/board`
+- `GET /api/v1/admin/publications/board`
+- `GET /api/v1/admin/ownership/board`
+- `GET /api/v1/admin/users/{user_id}/workload`
+- `GET /api/v1/admin/gaps`
+
+## Admin Read Models
+
+Fase 12 agrega una API de dashboard operativo bajo `/api/v1/admin`. Estos endpoints
+no duplican datos ni crean tablas nuevas: calculan vistas de lectura desde entidades
+existentes como `NewsItem`, `IntakeSignal`, `WorkflowRun`, `WorkflowTask`,
+`EditorialReadinessScore`, `PublicationRecord`, `OwnershipAssignment`, `AgentOutput`,
+`MemoryItem` y `MetricSnapshot`.
+
+Los endpoints admin usan el permiso `admin.dashboard.read`. `viewer` puede leer estos
+dashboards porque se interpreta como rol interno read-only. Si `AUTH_ENABLED=true`, la
+API key sigue siendo obligatoria y `X-Actor-Role` debe ser un rol válido.
+
+### Overview
+
+`GET /api/v1/admin/dashboard/overview` devuelve conteos operativos:
+
+- noticias e intake signals.
+- workflows activos y bloqueados.
+- tasks pendientes, bloqueadas y completadas.
+- readiness latest, ready-to-advance y bloqueado.
+- publicaciones scheduled/published.
+- agent outputs pendientes de revisión.
+- usuarios activos y trabajo sin asignar.
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/dashboard/overview \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+### Newsroom Health
+
+`GET /api/v1/admin/dashboard/newsroom-health` devuelve:
+
+- `health_status`: `healthy`, `degraded` o `critical`.
+- `health_score`.
+- blockers críticos, warnings y acciones recomendadas.
+- conteos por estado de news, workflow, task y readiness.
+
+### Boards
+
+- Intake queue: señales pendientes, duplicadas o únicas, sin incluir `raw_payload`.
+- Editorial work queue: noticias con brechas editoriales, tareas pendientes o readiness bajo.
+- Blockers: tareas bloqueadas, risks críticos, auditorías bloqueantes y readiness bloqueado.
+- Readiness board: último score por noticia, sin duplicar scores viejos.
+- Task board: tareas operativas con filtros por estado, agente, assignee, prioridad y bloqueo.
+- Publication board: publicaciones scheduled/published por canal y estado.
+- Ownership board: usuarios, asignaciones activas y trabajo sin owner.
+- User workload: asignaciones, tasks, noticias owned y revisiones por usuario.
+- Operational gaps: brechas como noticias sin verificación, publicaciones sin métricas,
+  agent outputs pendientes y tareas sin owner.
+
+Ejemplos:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/admin/editorial/work-queue" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: editor"
+```
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/admin/blockers" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: reviewer"
+```
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/admin/readiness/board?score_band=blocked" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: analyst"
+```
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/admin/ownership/board" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
 
 ## Intake Adapters & Deduplication
 
@@ -1580,6 +1673,7 @@ La suite actual valida:
 - Editorial Readiness Scoring.
 - IntakeSignal, IntakeAdapterRun, normalización, deduplicación y promoción.
 - UserAccount, OwnershipAssignment y RBAC mínimo por headers.
+- Admin Read Models / Operational Dashboard API.
 
 ## Editorial Readiness Scoring
 

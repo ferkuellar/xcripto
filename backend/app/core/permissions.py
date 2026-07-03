@@ -36,6 +36,7 @@ PERMISSIONS = {
     "user.update",
     "ownership.assign",
     "ownership.release",
+    "admin.dashboard.read",
 }
 
 EDITORIAL_APPROVAL_PERMISSIONS = {
@@ -107,13 +108,13 @@ AGENT_OPERATOR_PERMISSIONS = {
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     "owner": PERMISSIONS,
     "admin": PERMISSIONS,
-    "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS,
-    "editor": EDITOR_PERMISSIONS,
-    "analyst": ANALYST_PERMISSIONS,
-    "reviewer": REVIEWER_PERMISSIONS,
-    "publisher": PUBLISHER_PERMISSIONS,
-    "agent_operator": AGENT_OPERATOR_PERMISSIONS,
-    "viewer": set(),
+    "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS | {"admin.dashboard.read"},
+    "editor": EDITOR_PERMISSIONS | {"admin.dashboard.read"},
+    "analyst": ANALYST_PERMISSIONS | {"admin.dashboard.read"},
+    "reviewer": REVIEWER_PERMISSIONS | {"admin.dashboard.read"},
+    "publisher": PUBLISHER_PERMISSIONS | {"admin.dashboard.read"},
+    "agent_operator": AGENT_OPERATOR_PERMISSIONS | {"admin.dashboard.read"},
+    "viewer": {"admin.dashboard.read"},
     "system": PERMISSIONS,
 }
 
