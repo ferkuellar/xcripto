@@ -93,3 +93,14 @@ def test_intake_alembic_migration_exists():
     assert "intake_adapter_runs" in migration_text
     assert "ix_intake_signals_content_hash" in migration_text
     assert "ix_intake_adapter_runs_adapter_name" in migration_text
+
+
+def test_rbac_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0009_add_users_roles_and_ownership.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "user_accounts" in migration_text
+    assert "ownership_assignments" in migration_text
+    assert "ix_user_accounts_role" in migration_text
+    assert "ix_ownership_assignments_entity_type" in migration_text

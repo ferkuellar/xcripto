@@ -619,3 +619,41 @@ INTAKE_ADAPTER_RUN_STATUSES = {
     "failed",
     "cancelled",
 }
+
+USER_STATUSES = {
+    "invited",
+    "active",
+    "inactive",
+    "suspended",
+    "archived",
+    "system",
+}
+USER_ROLES = {
+    "owner",
+    "admin",
+    "editor_in_chief",
+    "editor",
+    "analyst",
+    "reviewer",
+    "publisher",
+    "agent_operator",
+    "viewer",
+    "system",
+}
+OWNERSHIP_TYPES = {
+    "owner",
+    "assignee",
+    "reviewer",
+    "approver",
+    "publisher",
+    "watcher",
+    "backup",
+    "escalation_owner",
+}
+OWNERSHIP_STATUSES = {
+    "active",
+    "released",
+    "transferred",
+    "cancelled",
+    "archived",
+}

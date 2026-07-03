@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.publication_record import (
     PublicationRecordCreate,
@@ -20,7 +20,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
     "/publication-records",
     response_model=PublicationRecordRead,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("publication.create"))],
 )
 async def create_publication_record(
     payload: PublicationRecordCreate,
@@ -83,7 +83,7 @@ async def list_news_publication_records(
 @router.patch(
     "/publication-records/{publication_record_id}/status",
     response_model=PublicationRecordRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("publication.update_status"))],
 )
 async def update_publication_record_status(
     publication_record_id: str,

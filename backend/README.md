@@ -9,6 +9,8 @@ y almacenamiento auditable de `AgentOutput`.
 También incluye scoring determinístico de readiness editorial por `NewsItem`.
 Fase 10 agrega intake, normalización y deduplicación de señales candidatas antes de
 promoverlas a noticias.
+Fase 11 agrega usuarios internos, roles mínimos, ownership operativo y permisos por
+headers para acciones críticas.
 
 ## Stack
 
@@ -139,6 +141,13 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `PATCH /api/v1/intake/signals/{signal_id}/reject`
 - `PATCH /api/v1/intake/signals/{signal_id}/archive`
 - `POST /api/v1/intake/adapter-runs`
+- `POST /api/v1/users`
+- `PATCH /api/v1/users/{user_id}`
+- `PATCH /api/v1/users/{user_id}/activate`
+- `PATCH /api/v1/users/{user_id}/deactivate`
+- `POST /api/v1/ownership/assign`
+- `PATCH /api/v1/ownership/{ownership_id}/release`
+- `PATCH /api/v1/ownership/{ownership_id}/transfer`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -163,6 +172,168 @@ Respuestas esperadas con auth activa:
 - Sin header: HTTP 401, `Missing API key`
 - Header incorrecto: HTTP 403, `Invalid API key`
 - `AUTH_ENABLED=true` sin `API_KEY`: HTTP 500 controlado de configuración
+
+## RBAC mínimo
+
+Fase 11 agrega `UserAccount`, `OwnershipAssignment` y permisos estáticos por rol.
+No implementa login, passwords, JWT, OAuth ni sesiones. La API key sigue siendo la
+base de protección para escrituras cuando `AUTH_ENABLED=true`.
+
+Headers opcionales:
+
+```text
+X-Actor-Id
+X-Actor-Role
+```
+
+Comportamiento:
+
+- `AUTH_ENABLED=false`: no bloquea por API key ni por actor, para mantener DX local.
+- `AUTH_ENABLED=true`: la API key sigue siendo obligatoria.
+- Si viene `X-Actor-Role`, se valida contra permisos.
+- Si no viene actor con auth activa, se usa `system` para compatibilidad interna.
+
+Roles permitidos:
+
+```text
+owner
+admin
+editor_in_chief
+editor
+analyst
+reviewer
+publisher
+agent_operator
+viewer
+system
+```
+
+Acciones protegidas principales:
+
+```text
+intake.promote
+readiness.calculate
+audit.create
+publication.create
+publication.update_status
+agent_output.accept
+agent_output.reject
+memory.approve
+memory.invalidate
+user.create
+user.update
+ownership.assign
+ownership.release
+```
+
+`owner`, `admin` y `system` tienen permisos completos. `viewer` es de solo lectura.
+Los demás roles tienen permisos acotados a su área editorial u operativa.
+
+### UserAccount
+
+`UserAccount` identifica actores internos para ownership, trazabilidad y permisos
+mínimos. No implica sesión autenticada todavía.
+
+Endpoints:
+
+- `POST /api/v1/users`
+- `GET /api/v1/users` - filtros `role`, `status`, `is_active`, `email`, `handle`, `limit`, `offset`
+- `GET /api/v1/users/{user_id}`
+- `PATCH /api/v1/users/{user_id}`
+- `PATCH /api/v1/users/{user_id}/activate`
+- `PATCH /api/v1/users/{user_id}/deactivate`
+
+Crear usuario:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/users \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin" \
+  -d '{
+    "display_name": "Fernando Cuellar",
+    "email": "fercuellar@example.com",
+    "handle": "fercuellar",
+    "role": "owner"
+  }'
+```
+
+### OwnershipAssignment
+
+`OwnershipAssignment` registra responsabilidad operativa sobre una entidad editorial
+o de workflow. El ownership formal vive en esta tabla; `WorkflowTask.assigned_to`
+continúa como string compatible con el modelo existente.
+
+Tipos:
+
+```text
+owner
+assignee
+reviewer
+approver
+publisher
+watcher
+backup
+escalation_owner
+```
+
+Estados:
+
+```text
+active
+released
+transferred
+cancelled
+archived
+```
+
+Endpoints:
+
+- `POST /api/v1/ownership/assign`
+- `GET /api/v1/ownership`
+- `GET /api/v1/ownership/{ownership_id}`
+- `GET /api/v1/users/{user_id}/ownership`
+- `GET /api/v1/ownership/entity/{entity_type}/{entity_id}`
+- `PATCH /api/v1/ownership/{ownership_id}/release`
+- `PATCH /api/v1/ownership/{ownership_id}/transfer`
+
+Asignar ownership:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/ownership/assign \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin" \
+  -d '{
+    "user_id": "USER_ID",
+    "entity_type": "NewsItem",
+    "entity_id": "NEWS_ID",
+    "ownership_type": "owner",
+    "assigned_by": "operator"
+  }'
+```
+
+Probar permiso suficiente:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/promote \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: editor" \
+  -d '{"create_workflow": false}'
+```
+
+Probar permiso insuficiente:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/promote \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: viewer" \
+  -d '{"create_workflow": false}'
+```
+
+Respuesta esperada: HTTP 403 `Insufficient permission`.
 
 ## Endpoints actuales
 
@@ -1408,6 +1579,7 @@ La suite actual valida:
 - MetricSnapshot, MemoryItem, KnowledgeNode y KnowledgeEdge.
 - Editorial Readiness Scoring.
 - IntakeSignal, IntakeAdapterRun, normalización, deduplicación y promoción.
+- UserAccount, OwnershipAssignment y RBAC mínimo por headers.
 
 ## Editorial Readiness Scoring
 

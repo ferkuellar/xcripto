@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_api_key, require_permission
 from app.db.session import get_session
 from app.schemas.agent_output import (
     AgentOutputAccept,
@@ -98,7 +98,7 @@ async def list_workflow_agent_outputs(
 @router.patch(
     "/agent-outputs/{agent_output_id}/accept",
     response_model=AgentOutputRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("agent_output.accept"))],
 )
 async def accept_agent_output(
     agent_output_id: str,
@@ -114,7 +114,7 @@ async def accept_agent_output(
 @router.patch(
     "/agent-outputs/{agent_output_id}/reject",
     response_model=AgentOutputRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("agent_output.reject"))],
 )
 async def reject_agent_output(
     agent_output_id: str,

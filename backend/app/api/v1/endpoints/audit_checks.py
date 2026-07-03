@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.audit_check import AuditCheckCreate, AuditCheckRead
 from app.services import audit_check_service
@@ -16,7 +16,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
     "",
     response_model=AuditCheckRead,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("audit.create"))],
 )
 async def create_audit_check(
     payload: AuditCheckCreate,

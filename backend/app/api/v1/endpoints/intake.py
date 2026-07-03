@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_api_key, require_permission
 from app.db.session import get_session
 from app.schemas.intake import (
     IntakeAdapterRunCreate,
@@ -87,7 +87,7 @@ async def dedupe_signal(signal_id: str, session: SessionDep) -> IntakeSignalRead
 @router.post(
     "/signals/{signal_id}/promote",
     response_model=IntakeSignalRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("intake.promote"))],
 )
 async def promote_signal(
     signal_id: str,

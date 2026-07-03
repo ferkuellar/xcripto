@@ -4,7 +4,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.editorial_readiness import EditorialReadinessScoreRead
 from app.services import editorial_readiness_service
@@ -17,7 +17,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
     "/news/{news_id}/calculate",
     response_model=EditorialReadinessScoreRead,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("readiness.calculate"))],
 )
 async def calculate_editorial_readiness(
     news_id: str,

@@ -12,9 +12,11 @@ from app.api.v1.endpoints import (
     memory_items,
     metric_snapshots,
     news,
+    ownership,
     publication_records,
     risk_reviews,
     sources,
+    users,
     verification_records,
     workflow_tasks,
     workflows,
@@ -37,4 +39,6 @@ api_router.include_router(workflow_tasks.router)
 api_router.include_router(metric_snapshots.router)
 api_router.include_router(memory_items.router)
 api_router.include_router(knowledge.router)
+api_router.include_router(ownership.router)
+api_router.include_router(users.router)
 api_router.include_router(workflows.router)

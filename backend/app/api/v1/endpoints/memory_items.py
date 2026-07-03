@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.security import require_api_key
+from app.core.security import require_api_key, require_permission
 from app.db.session import get_session
 from app.schemas.memory_item import (
     MemoryItemApprove,
@@ -105,7 +105,7 @@ async def list_workflow_memory_items(
 @router.patch(
     "/memory-items/{memory_item_id}/approve",
     response_model=MemoryItemRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("memory.approve"))],
 )
 async def approve_memory_item(
     memory_item_id: str,
@@ -133,7 +133,7 @@ async def reject_memory_item(
 @router.patch(
     "/memory-items/{memory_item_id}/invalidate",
     response_model=MemoryItemRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("memory.invalidate"))],
 )
 async def invalidate_memory_item(
     memory_item_id: str,

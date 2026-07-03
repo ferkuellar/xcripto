@@ -11,9 +11,11 @@ from app.models.knowledge_node import KnowledgeNode
 from app.models.memory_item import MemoryItem
 from app.models.metric_snapshot import MetricSnapshot
 from app.models.news_item import NewsItem
+from app.models.ownership_assignment import OwnershipAssignment
 from app.models.publication_record import PublicationRecord
 from app.models.risk_review import RiskReview
 from app.models.source_reference import SourceReference
+from app.models.user_account import UserAccount
 from app.models.verification_record import VerificationRecord
 from app.models.workflow_run import WorkflowRun
 from app.models.workflow_step import WorkflowStep
@@ -33,9 +35,11 @@ __all__ = [
     "MemoryItem",
     "MetricSnapshot",
     "NewsItem",
+    "OwnershipAssignment",
     "PublicationRecord",
     "RiskReview",
     "SourceReference",
+    "UserAccount",
     "VerificationRecord",
     "WorkflowTask",
     "WorkflowRun",
