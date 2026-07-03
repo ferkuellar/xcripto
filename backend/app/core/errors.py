@@ -3,6 +3,8 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
+from app.core.config import get_settings
+
 
 class NotFoundError(HTTPException):
     def __init__(self, resource: str) -> None:
@@ -42,3 +44,13 @@ async def validation_exception_handler(
             "correlation_id": getattr(request.state, "correlation_id", None),
         },
     )
+
+
+async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    settings = get_settings()
+    content = {
+        "success": False,
+        "error": str(exc) if settings.debug else "Internal server error",
+        "correlation_id": getattr(request.state, "correlation_id", None),
+    }
+    return JSONResponse(status_code=500, content=content)

@@ -14,6 +14,8 @@ headers para acciones críticas.
 Fase 12 agrega read models administrativos para el futuro dashboard operativo.
 Fase 13 agrega `OperationalAuditLog` para trazabilidad operativa persistente de
 acciones críticas, actores, permisos, decisiones, resultados y `correlation_id`.
+Fase 14 endurece configuración, CORS, logging estructurado, health/readiness,
+Docker, smoke tests y documentación operativa para deploy del MVP.
 
 ## Stack
 
@@ -58,6 +60,7 @@ docker compose up --build
 
 Docker Compose levanta PostgreSQL 16 y la API en `http://localhost:8000`.
 Para entornos persistentes, usa `AUTO_CREATE_TABLES=false` y aplica migraciones Alembic.
+El servicio API ejecuta `alembic upgrade head` antes de iniciar Uvicorn.
 
 ## Migraciones Alembic
 
@@ -103,14 +106,33 @@ Copia `.env.example` a `.env`. Variables principales:
 
 | Variable               | Default                           | Descripción                                                                               |
 | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
+| `APP_NAME`           | `XMIP Backend`                  | Nombre mostrado por OpenAPI                                                               |
+| `APP_VERSION`        | `0.1.0`                         | Versión operativa expuesta en healthchecks                                                |
 | `DATABASE_URL`       | `sqlite+aiosqlite:///./xmip.db` | URL async de SQLAlchemy. Para PostgreSQL:`postgresql+asyncpg://user:pass@host:5432/xmip` |
-| `AUTO_CREATE_TABLES` | `true`                          | Crea tablas al arrancar solo en local/dev/test cuando no se usan migraciones               |
-| `ENVIRONMENT`        | `local`                         | `local` / `dev` / `staging` / `prod` / `test`                                    |
-| `CORS_ORIGINS`       | `["http://localhost:5173"]`     | Orígenes permitidos                                                                       |
+| `AUTO_CREATE_TABLES` | `false`                         | Debe quedar `false` en staging/prod; usa Alembic para crear esquema                       |
+| `ENVIRONMENT`        | `development`                   | `development` / `staging` / `production` / `test`                                        |
+| `DEBUG`              | `false`                         | Evita exponer internals en producción                                                     |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Orígenes frontend/admin permitidos                                          |
+| `CORS_ALLOW_CREDENTIALS` | `false`                    | Credenciales CORS                                                                         |
+| `CORS_ALLOWED_METHODS` | `GET,POST,PATCH,PUT,DELETE,OPTIONS` | Métodos CORS permitidos                                                           |
+| `CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,X-API-Key,X-Correlation-ID,X-Actor-Id,X-Actor-Role,X-Actor-Display` | Headers CORS |
 | `LOG_LEVEL`          | `INFO`                          | Nivel de logging                                                                           |
 | `AUTH_ENABLED`       | `false`                         | Activa API key auth para endpoints de escritura                                            |
 | `API_KEY`            | `null`                          | Secreto esperado cuando `AUTH_ENABLED=true`                                                |
 | `API_KEY_HEADER_NAME` | `X-API-Key`                    | Header usado para enviar la API key                                                        |
+| `REQUEST_LOGGING_ENABLED` | `true`                    | Activa logs estructurados por request                                                       |
+| `REQUEST_BODY_LOGGING_ENABLED` | `false`             | Mantener `false` salvo diagnóstico controlado                                              |
+| `RESPONSE_BODY_LOGGING_ENABLED` | `false`            | Mantener `false` salvo diagnóstico controlado                                              |
+| `OPERATIONAL_AUDIT_ENABLED` | `true`                | Habilita bitácora operacional                                                              |
+| `DB_HEALTHCHECK_ENABLED` | `true`                    | `/ready` valida DB con `SELECT 1`                                                          |
+
+En `ENVIRONMENT=production` con `AUTH_ENABLED=true`, `CORS_ALLOWED_ORIGINS=*` se
+rechaza como configuración insegura. Configura explícitamente el origen del
+frontend/admin, por ejemplo:
+
+```env
+CORS_ALLOWED_ORIGINS=https://admin.xcripto.example
+```
 
 ## Autorización mínima
 
@@ -349,6 +371,24 @@ Respuesta esperada: HTTP 403 `Insufficient permission`.
 ### Health
 
 - `GET /health`
+- `GET /live` - liveness del proceso, no depende de DB
+- `GET /ready` - readiness operacional; valida DB si `DB_HEALTHCHECK_ENABLED=true`
+
+Ejemplo de readiness saludable:
+
+```json
+{
+  "status": "ready",
+  "service": "xmip-backend",
+  "version": "0.1.0",
+  "checks": {
+    "configuration": "ok",
+    "database": "ok"
+  }
+}
+```
+
+Si la DB no responde, `/ready` devuelve HTTP 503 con `status=not_ready`.
 
 ### News Intake (`/api/v1/news`)
 
@@ -1390,7 +1430,7 @@ app/
 ├── models/             # Entidades SQLAlchemy
 ├── schemas/            # Pydantic request/response
 ├── services/           # Lógica de negocio y persistencia
-└── main.py             # App FastAPI, middleware, handlers, /health
+└── main.py             # App FastAPI, middleware, handlers, /health, /live, /ready
 ```
 
 Reglas de separación:
@@ -1427,7 +1467,7 @@ git commit -m "chore: initialize ORION XMIP repository with backend MVP"
 ## Pendientes técnicos
 
 - Autenticación completa para agentes y humanos.
-- Roles y permisos editoriales (`ADMIN`, `EDITOR`, `VIEWER`, etc.).
+- Login real, JWT/OAuth/SSO y sesiones de usuario.
 - Endpoints de workflows, memoria editorial, métricas y calendario.
 - Gates más específicos por severidad, categoría, fuente y riesgo editorial.
 - Pipeline CI con tests, lint y migraciones.
@@ -1857,6 +1897,88 @@ La suite actual valida:
 - UserAccount, OwnershipAssignment y RBAC mínimo por headers.
 - Admin Read Models / Operational Dashboard API.
 - OperationalAuditLog, endpoints de audit operacional, RBAC y acciones críticas auditadas.
+- Production hardening: `/live`, `/ready`, CORS configurable, request logging,
+  smoke test, Docker y documentación operativa.
+
+## Production Hardening / Deploy Readiness
+
+Fase 14 deja el backend listo para conectarse con el futuro frontend/admin sin
+cambiar la lógica editorial central.
+
+### Healthchecks
+
+- `/health`: compatibilidad básica del MVP.
+- `/live`: liveness del proceso; no consulta DB.
+- `/ready`: readiness operacional; ejecuta `SELECT 1` si `DB_HEALTHCHECK_ENABLED=true`.
+
+### Logging
+
+El backend usa logging JSON con campos como:
+
+```text
+timestamp
+level
+logger
+message
+correlation_id
+request_method
+request_path
+status_code
+duration_ms
+actor_role
+```
+
+Por defecto no se registran cuerpos de request/response ni headers sensibles. `X-API-Key`,
+`Authorization`, cookies y secretos quedan fuera de los logs operativos.
+
+### Smoke test
+
+Con el servidor corriendo:
+
+```bash
+cd backend
+python scripts/smoke_test.py --base-url http://127.0.0.1:8000
+```
+
+El script valida `/health`, `/live`, `/ready` y `/openapi.json`. Opcionalmente puede
+crear una señal de intake si se entrega API key:
+
+```bash
+python scripts/smoke_test.py \
+  --base-url http://127.0.0.1:8000 \
+  --api-key dev-secret \
+  --create-intake-signal
+```
+
+### Docker
+
+```bash
+cd backend
+docker compose config
+docker compose build
+docker compose up
+```
+
+`docker-compose.yml` define `api` y `postgres`. La API depende del healthcheck de
+PostgreSQL, ejecuta `alembic upgrade head` y expone `/ready` como healthcheck.
+
+### Operación
+
+Documentos de despliegue y operación:
+
+- `docs/DEPLOYMENT_CHECKLIST.md`
+- `docs/OPERATIONAL_RUNBOOK.md`
+
+Antes de producción:
+
+```bash
+alembic upgrade head
+pytest
+ruff check .
+python scripts/smoke_test.py --base-url http://127.0.0.1:8000
+```
+
+Usa PostgreSQL en staging/prod. SQLite queda reservado para desarrollo y tests.
 
 ## Editorial Readiness Scoring
 
