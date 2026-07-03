@@ -5,6 +5,7 @@ import { AppShell } from '@/components/layout/AppShell'
 // Code-splitting por ruta: cada página se carga bajo demanda para reducir
 // el bundle inicial (recharts y framer-motion solo se descargan donde se usan).
 const CommandCenter = lazy(() => import('@/pages/CommandCenter'))
+const AdminDashboardPage = lazy(() => import('@/pages/AdminDashboardPage'))
 const NewsIntake = lazy(() => import('@/pages/NewsIntake'))
 const NewsFeedPage = lazy(() => import('@/pages/NewsFeedPage'))
 const NewsDetailPage = lazy(() => import('@/pages/NewsDetailPage'))
@@ -70,6 +71,22 @@ function App() {
             element={
               <Suspense fallback={<RouteFallback />}>
                 <NewsIntake />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminDashboardPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/admin/dashboard"
+            element={
+              <Suspense fallback={<RouteFallback />}>
+                <AdminDashboardPage />
               </Suspense>
             }
           />

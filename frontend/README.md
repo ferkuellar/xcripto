@@ -33,10 +33,62 @@ Copia `.env.example` a `.env.local`:
 | Variable            | Default                  | Descripción                                                   |
 | ------------------- | ------------------------ | ------------------------------------------------------------- |
 | `VITE_API_BASE_URL` | `http://127.0.0.1:8000`  | Base del backend XMIP, sin slash final                        |
-| `VITE_API_KEY`      | *(vacío)*                | Solo si el backend corre con `AUTH_ENABLED=true` (escrituras) |
+| `VITE_API_KEY`      | *(vacío)*                | API key de desarrollo/admin interno cuando `AUTH_ENABLED=true` |
+| `VITE_ACTOR_ROLE`   | `admin`                  | Rol RBAC enviado como `X-Actor-Role`                          |
+| `VITE_ACTOR_ID`     | `local-admin`            | Actor opcional enviado como `X-Actor-Id`                      |
 
 Si el backend está apagado, la UI lo indica ("XMIP sin conexión" en el topbar) y
 cada módulo muestra un estado de error con reintento — no pantallas rotas.
+
+## Frontend/Admin Integration
+
+La ruta `#/admin` conecta el panel operativo al contrato de backend de Fase 17.
+Usa un cliente separado en `src/lib/xmipAdminApi.ts` para enviar:
+
+- `X-API-Key` desde `VITE_API_KEY`
+- `X-Actor-Role` desde `VITE_ACTOR_ROLE`
+- `X-Actor-Id` desde `VITE_ACTOR_ID`
+- `X-Correlation-ID` generado por request
+
+`VITE_API_KEY` solo es aceptable para desarrollo local o una consola admin interna.
+Un frontend público de producción no debe exponer API keys; una fase futura debe
+introducir login real con JWT/OAuth/SSO o un backend-for-frontend.
+
+### Endpoints admin consumidos
+
+| UI | Endpoint |
+| --- | --- |
+| Readiness banner | `GET /ready` |
+| Frontend config | `GET /api/v1/admin/frontend/config` |
+| Route map | `GET /api/v1/admin/frontend/route-map` |
+| Overview cards | `GET /api/v1/admin/dashboard/overview` |
+| Newsroom health | `GET /api/v1/admin/dashboard/newsroom-health` |
+| Intake queue | `GET /api/v1/admin/intake/queue` |
+| Editorial work queue | `GET /api/v1/admin/editorial/work-queue` |
+| Blockers | `GET /api/v1/admin/blockers` |
+| Readiness board | `GET /api/v1/admin/readiness/board` |
+| Task board | `GET /api/v1/admin/tasks/board` |
+| Publication board | `GET /api/v1/admin/publications/board` |
+| Ownership board | `GET /api/v1/admin/ownership/board` |
+| Operational gaps | `GET /api/v1/admin/gaps` |
+| Agent runner summary | `GET /api/v1/admin/agent-runner/summary` |
+| Connectors summary | `GET /api/v1/admin/connectors/summary` |
+| Audit summary | `GET /api/v1/admin/audit/summary` |
+
+### Probar contra backend local
+
+```bash
+cd backend
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm run dev
+```
+
+Abre `http://localhost:5173/#/admin`.
 
 ## Stack
 
