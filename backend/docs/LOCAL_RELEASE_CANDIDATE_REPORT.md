@@ -1,12 +1,43 @@
-# XMIP — Local Release Candidate Report (Hard Phase P0)
+# XMIP — Local Release Candidate Report (Hard Phase P0 + P1)
 
 | Campo | Valor |
 | --- | --- |
-| Fecha | 2026-07-03 |
-| Rama | `hard/local-production-readiness` |
+| Fecha | 2026-07-03 (P0) · actualizado 2026-07-03 (P1) |
+| Rama | `fix/local-production-readiness-p1` (sobre `hard/local-production-readiness`) |
 | Commit base | `052000f` (feat: connect admin frontend to backend api) |
-| Commits de la fase | `8b81250` (news filters), `fca28aa` (frontend feed) + docs/scripts de este reporte |
+| Commits P0 | `8b81250` (news filters), `fca28aa` (frontend feed), `f7c76b9` (QA docs) |
+| Commits P1 | `7635d09` (fix readiness stale snapshot), `7542c53` (fix audit catalog) |
 | Autor del ciclo QA | Claude (sesión local), datos QA etiquetados `[QA]` |
+
+## Actualización P1 (2026-07-03)
+
+- **Bug #1 CORREGIDO** (`7635d09`): `calculate_editorial_readiness` recalcula el
+  WorkflowRun asociado antes de puntuar; ya no reporta requisitos stale.
+  `explain`/`latest`/`list` intactos (read-only). 3 tests de regresión.
+- **Bug #2 CORREGIDO** (`7542c53`): catálogo único de AuditCheck alineado con los
+  gates: `AUDIT_STATUSES = {passed, passed_with_warnings, failed, warning,
+  pending, blocked}`; `decision_recommendation` validado contra
+  `AUDIT_DECISION_RECOMMENDATIONS = {allow_to_continue, allow_with_warnings,
+  needs_revision, block_publication}` (nullable). `pass`/`fail` y texto libre se
+  rechazan con 422 y mensaje que apunta al valor canónico. Gates sin cambios,
+  siguen fallando cerrado. 6 tests de regresión + test de consistencia
+  catálogo⊇gates.
+- **QA post-fix:** pytest **499 passed** · ruff limpio · ciclo Alembic OK ·
+  OpenAPI regenerado · smoke/admin/newsroom_qa **PASS** en server
+  production-like :8010 · verificación en vivo: calculate sin recalculate
+  manual ya no muestra VerificationRecord stale (fix #1) y `pass` devuelve 422
+  mientras `passed/allow_to_continue` se acepta (fix #2) · docker config/build OK.
+- **Remote git:** `BLOCKED: remote URL required.` Sin URL provista no se
+  configuró remote ni push — sigue siendo el pendiente crítico #1.
+- **Nota de datos:** filas existentes en DBs dev con `audit_status="pass"`
+  permanecen (sin migración destructiva); el gate ya las trataba como
+  no-aprobatorias y las nuevas escrituras quedan bloqueadas.
+- **Follow-up frontend:** `frontend/src/lib/api-types.ts` y los mapas de badges
+  de Audit aún tipan `pass/fail`; actualizar a los valores canónicos en la
+  próxima fase de frontend (visual: valores nuevos caen a badge neutral).
+- **GO/NO-GO actualizado: GO (condicionado solo por remote/push).** Las dos
+  condiciones de bugs de P0 quedaron cerradas; `compose up` sigue pendiente de
+  puerto libre.
 
 ---
 

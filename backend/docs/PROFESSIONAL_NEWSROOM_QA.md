@@ -59,7 +59,8 @@ Una noticia puede avanzar a `approved`/`scheduled` solo si:
     (partially_verified exige etiquetado explícito de lo no confirmado)
 [x] RiskReview con decision_recommendation permisiva (allow / allow_with_minor_edits)
 [x] AuditCheck aprobatorio (passed / passed_with_warnings, ready_to_advance=true,
-    sin publication_block_recommended)
+    sin publication_block_recommended, decision_recommendation en
+    allow_to_continue / allow_with_warnings — catálogo canónico validado por la API)
 [x] AgentOutputs con risk_flags revisados y aceptados por humano (accepted_by)
 [x] Editorial readiness sin blocking_reasons
 [x] ContentPiece en approved
