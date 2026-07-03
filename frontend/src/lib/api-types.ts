@@ -160,3 +160,93 @@ export interface NewsCreate {
   source_url: string
   source_name: string
 }
+
+export interface VerificationRecordRead {
+  id: string
+  news_item_id: string
+  verification_status: string
+  evidence_level: string
+  confidence_level: string
+  summary: string
+  verified_claims: string[]
+  unverified_claims: string[]
+  contradictions: string[]
+  source_refs: string[]
+  human_review_required: boolean
+  reviewer: string | null
+  correlation_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface RiskReviewRead {
+  id: string
+  news_item_id: string
+  entity_type: string
+  entity_id: string
+  risk_level: string
+  severity: string
+  decision_recommendation: string
+  risk_flags: string[]
+  summary: string
+  required_disclaimers: string[]
+  language_restrictions: string[]
+  human_review_required: boolean
+  publication_block_recommended: boolean
+  reviewer: string | null
+  correlation_id: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface EditorialReadinessScoreRead {
+  id: string
+  news_item_id: string
+  workflow_run_id: string | null
+  score: number
+  score_band: string
+  readiness_status: string
+  source_score: number
+  verification_score: number
+  risk_score: number
+  editorial_score: number
+  audit_score: number
+  blocking_reasons: string[]
+  missing_requirements: string[]
+  warnings: string[]
+  recommended_next_action: string | null
+  created_at: string
+  updated_at: string
+}
+
+/**
+ * Espejo de NEWS_STATUS_TRANSITIONS + FINAL_NEWS_STATUSES
+ * (backend/app/core/state_machine.py). Solo se usa para proponer destinos
+ * en la UI; la validación autoritativa la hace el backend en PATCH /status.
+ */
+const NEWS_STATUS_TRANSITIONS: Record<string, string[]> = {
+  detected: ['registered'],
+  registered: ['classified'],
+  classified: ['validating'],
+  validating: ['verified', 'partially_verified', 'rumor', 'rejected'],
+  verified: ['prioritized'],
+  partially_verified: ['prioritized'],
+  rumor: ['monitoring'],
+  monitoring: ['validating'],
+  prioritized: ['drafting'],
+  drafting: ['reviewing'],
+  reviewing: ['approved', 'rejected'],
+  approved: ['scheduled'],
+  scheduled: ['published'],
+  published: ['distributed', 'corrected', 'retracted'],
+  distributed: ['measured'],
+  measured: ['archived'],
+}
+
+const FINAL_NEWS_STATUSES = new Set(['rejected', 'archived', 'corrected', 'retracted', 'escalated'])
+
+export function allowedNewsTransitions(current: string): string[] {
+  const allowed = [...(NEWS_STATUS_TRANSITIONS[current] ?? [])]
+  if (!FINAL_NEWS_STATUSES.has(current)) allowed.push('escalated')
+  return allowed
+}

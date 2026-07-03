@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { ArrowUpRight, Copy, Plus, Radar, RefreshCw, X } from 'lucide-react'
 import { SectionHeader } from '@/components/ui/section-header'
 import { Badge, type BadgeProps } from '@/components/ui/badge'
@@ -235,9 +236,12 @@ export default function NewsIntake() {
                   </div>
                 )}
                 {signal.promoted_news_item_id && (
-                  <span className="font-mono text-2xs text-accent-green">
+                  <Link
+                    to={`/news/${signal.promoted_news_item_id}`}
+                    className="font-mono text-2xs text-accent-green transition-colors hover:text-accent-cyan hover:underline"
+                  >
                     → news {signal.promoted_news_item_id.slice(0, 8)}
-                  </span>
+                  </Link>
                 )}
               </div>
             )

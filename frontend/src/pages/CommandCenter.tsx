@@ -169,9 +169,10 @@ export default function CommandCenter() {
         {newsItems.length > 0 && (
           <div className="space-y-2">
             {newsItems.slice(0, 6).map((item) => (
-              <div
+              <Link
                 key={item.id}
-                className="card-surface flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-white/[0.02]"
+                to={`/news/${item.id}`}
+                className="card-surface flex flex-wrap items-center gap-3 p-3 transition-colors hover:bg-white/[0.03] focus:outline-none focus:ring-1 focus:ring-accent-cyan/50"
               >
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium text-ink">{item.title}</p>
@@ -183,7 +184,7 @@ export default function CommandCenter() {
                 <Badge variant={(newsStatusTone[item.status] as never) ?? 'neutral'}>
                   {item.status}
                 </Badge>
-              </div>
+              </Link>
             ))}
           </div>
         )}
