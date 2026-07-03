@@ -80,3 +80,16 @@ def test_editorial_readiness_alembic_migration_exists():
     assert "editorial_readiness_scores" in migration_text
     assert "ix_editorial_readiness_scores_news_item_id" in migration_text
     assert "ix_editorial_readiness_scores_score_band" in migration_text
+
+
+def test_intake_alembic_migration_exists():
+    migration_path = Path(
+        "alembic/versions/20260702_0008_add_intake_adapters_and_deduplication.py"
+    )
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "intake_signals" in migration_text
+    assert "intake_adapter_runs" in migration_text
+    assert "ix_intake_signals_content_hash" in migration_text
+    assert "ix_intake_adapter_runs_adapter_name" in migration_text

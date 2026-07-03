@@ -7,6 +7,8 @@ Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad
 `NewsItem`, autorización mínima por API key, editorial gates basados en `AuditCheck`
 y almacenamiento auditable de `AgentOutput`.
 También incluye scoring determinístico de readiness editorial por `NewsItem`.
+Fase 10 agrega intake, normalización y deduplicación de señales candidatas antes de
+promoverlas a noticias.
 
 ## Stack
 
@@ -131,6 +133,12 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `PATCH /api/v1/agent-outputs/{agent_output_id}/reject`
 - `PATCH /api/v1/agent-outputs/{agent_output_id}/supersede`
 - `POST /api/v1/editorial-readiness/news/{news_id}/calculate`
+- `POST /api/v1/intake/signals`
+- `POST /api/v1/intake/signals/{signal_id}/dedupe`
+- `POST /api/v1/intake/signals/{signal_id}/promote`
+- `PATCH /api/v1/intake/signals/{signal_id}/reject`
+- `PATCH /api/v1/intake/signals/{signal_id}/archive`
+- `POST /api/v1/intake/adapter-runs`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -168,6 +176,19 @@ Respuestas esperadas con auth activa:
 - `GET /api/v1/news` - lista noticias, con filtros `status`, `limit`, `offset`
 - `GET /api/v1/news/{news_id}`
 - `PATCH /api/v1/news/{news_id}/status` - cambia estado con máquina de estados
+
+### Intake Signals
+
+- `POST /api/v1/intake/signals`
+- `GET /api/v1/intake/signals` - filtros `signal_type`, `signal_status`, `dedupe_status`, `source_name`, `source_type`, `topic`, `priority`, `linked_news_item_id`, `promoted_news_item_id`, `limit`, `offset`
+- `GET /api/v1/intake/signals/{signal_id}`
+- `POST /api/v1/intake/signals/{signal_id}/dedupe`
+- `POST /api/v1/intake/signals/{signal_id}/promote`
+- `PATCH /api/v1/intake/signals/{signal_id}/reject`
+- `PATCH /api/v1/intake/signals/{signal_id}/archive`
+- `POST /api/v1/intake/adapter-runs`
+- `GET /api/v1/intake/adapter-runs` - filtros `adapter_name`, `adapter_type`, `status`, `limit`, `offset`
+- `GET /api/v1/intake/adapter-runs/{adapter_run_id}`
 
 ### Source References (`/api/v1/sources`)
 
@@ -253,6 +274,208 @@ Respuestas esperadas con auth activa:
 - `GET /api/v1/editorial-readiness/news/{news_id}/explain`
 - `GET /api/v1/editorial-readiness`
 - `GET /api/v1/editorial-readiness/{score_id}`
+
+## Intake Adapters & Deduplication
+
+Fase 10 agrega `IntakeSignal` e `IntakeAdapterRun` para recibir señales candidatas
+antes de convertirlas en `NewsItem`. `IntakeSignal` no es noticia aprobada, no es
+fuente verificada y no publica. Debe normalizarse y deduplicarse antes de promoción.
+
+`IntakeAdapterRun` registra ejecuciones lógicas de adaptadores manuales o futuros.
+No ejecuta RSS, scraping, redes sociales ni APIs externas en esta fase.
+
+### Catálogos
+
+`signal_type`:
+
+```text
+manual
+adapter
+agent_generated
+imported
+webhook
+rss
+social
+market_event
+calendar_event
+system
+```
+
+`signal_status`:
+
+```text
+received
+normalized
+dedupe_pending
+duplicate
+probable_duplicate
+unique
+linked
+promoted
+rejected
+archived
+error
+```
+
+`dedupe_status`:
+
+```text
+not_checked
+unique
+exact_duplicate
+probable_duplicate
+related
+needs_review
+false_positive
+```
+
+`adapter_type`:
+
+```text
+manual
+rss
+social
+market_data
+calendar
+webhook
+file_import
+agent_output
+system
+```
+
+`adapter_run_status`:
+
+```text
+created
+running
+completed
+completed_with_warnings
+failed
+cancelled
+```
+
+### Normalización
+
+Al crear una señal, el backend:
+
+- Aplica trim y normaliza espacios en título, resumen y contenido.
+- Canonicaliza URL básica.
+- Elimina parámetros de tracking `utm_source`, `utm_medium`, `utm_campaign`,
+  `utm_term` y `utm_content`.
+- Normaliza `asset_symbols`, `entities` y `keywords`.
+- Genera `content_hash` determinístico desde contenido normalizado.
+- Genera `dedupe_key` desde título, topic y fuente normalizados.
+
+### Deduplicación
+
+Reglas determinísticas:
+
+- Duplicado exacto si coincide `content_hash` o `url_canonical`.
+- Duplicado probable si coincide `dedupe_key` o si el título es similar con
+  `difflib.SequenceMatcher` y umbral `>= 0.88`.
+- Si no hay coincidencias, la señal queda `unique`.
+
+No usa ML, embeddings ni base vectorial.
+
+### Promoción
+
+`POST /api/v1/intake/signals/{signal_id}/promote` crea un `NewsItem` solo si la
+señal no está `duplicate`, `rejected`, `archived`, `error` ni ya promovida.
+
+Mapeo principal:
+
+```text
+normalized_title -> NewsItem.title
+normalized_summary/raw_content -> NewsItem.summary
+topic -> NewsItem.category
+priority -> NewsItem.priority
+url_canonical/source_url -> NewsItem.source_url
+source_name -> NewsItem.source_name
+status = detected
+```
+
+Si hay `source_url` y `source_name`, se crea `SourceReference` si no existe una
+equivalente. Si el body trae `create_workflow=true`, se crea `WorkflowRun` con el
+`workflow_type` solicitado. No se crean tareas bootstrap automáticamente desde promote.
+
+### Ejemplos
+
+Crear señal manual:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/signals \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "signal_type": "manual",
+    "source_name": "Example Wire",
+    "source_url": "https://example.com/news/btc-etf?utm_source=x",
+    "source_type": "wire",
+    "raw_title": "Bitcoin ETF sees record inflows",
+    "raw_summary": "Institutional inflows increased.",
+    "raw_content": "Institutional inflows into spot BTC ETFs reached a new record.",
+    "topic": "markets",
+    "asset_symbols": ["BTC"],
+    "priority": "P1",
+    "confidence_level": "IC3"
+  }'
+```
+
+Recalcular dedupe:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/dedupe \
+  -H "X-API-Key: dev-secret"
+```
+
+Promover a `NewsItem` y crear workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/promote \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"create_workflow": true, "workflow_type": "editorial_pipeline"}'
+```
+
+Rechazar o archivar:
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/reject \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"reason": "Duplicate or low quality."}'
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/intake/signals/SIGNAL_ID/archive \
+  -H "X-API-Key: dev-secret"
+```
+
+Registrar adapter run manual:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/intake/adapter-runs \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "adapter_name": "manual-intake",
+    "adapter_type": "manual",
+    "status": "completed",
+    "input_payload": {"count": 1},
+    "result_payload": {"signals_created": 1}
+  }'
+```
+
+Flujo mínimo:
+
+```text
+1. POST /api/v1/intake/signals
+2. GET /api/v1/intake/signals
+3. POST /api/v1/intake/signals/{id}/dedupe
+4. POST /api/v1/intake/signals/{id}/promote
+5. GET /api/v1/news/{news_id}
+6. POST /api/v1/workflows/news/{news_id}/start si no se creó automáticamente
+```
 
 ## Agent Output Storage
 
@@ -1184,6 +1407,7 @@ La suite actual valida:
 - WorkflowTask queue.
 - MetricSnapshot, MemoryItem, KnowledgeNode y KnowledgeEdge.
 - Editorial Readiness Scoring.
+- IntakeSignal, IntakeAdapterRun, normalización, deduplicación y promoción.
 
 ## Editorial Readiness Scoring
 

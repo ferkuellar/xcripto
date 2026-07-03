@@ -564,3 +564,58 @@ EDITORIAL_READINESS_WEIGHTS = {
     "memory_score": 2,
     "knowledge_score": 1,
 }
+
+INTAKE_SIGNAL_TYPES = {
+    "manual",
+    "adapter",
+    "agent_generated",
+    "imported",
+    "webhook",
+    "rss",
+    "social",
+    "market_event",
+    "calendar_event",
+    "system",
+}
+INTAKE_SIGNAL_STATUSES = {
+    "received",
+    "normalized",
+    "dedupe_pending",
+    "duplicate",
+    "probable_duplicate",
+    "unique",
+    "linked",
+    "promoted",
+    "rejected",
+    "archived",
+    "error",
+}
+INTAKE_DEDUPE_STATUSES = {
+    "not_checked",
+    "unique",
+    "exact_duplicate",
+    "probable_duplicate",
+    "related",
+    "needs_review",
+    "false_positive",
+}
+INTAKE_CONFIDENCE_LEVELS = {"IC0", "IC1", "IC2", "IC3", "IC4", "IC5", "unknown"}
+INTAKE_ADAPTER_TYPES = {
+    "manual",
+    "rss",
+    "social",
+    "market_data",
+    "calendar",
+    "webhook",
+    "file_import",
+    "agent_output",
+    "system",
+}
+INTAKE_ADAPTER_RUN_STATUSES = {
+    "created",
+    "running",
+    "completed",
+    "completed_with_warnings",
+    "failed",
+    "cancelled",
+}
