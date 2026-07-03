@@ -59,3 +59,14 @@ def test_agent_output_storage_alembic_migration_exists():
 
     assert migration_path.exists()
     assert "agent_outputs" in migration_text
+
+
+def test_metrics_memory_knowledge_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0006_add_metrics_memory_knowledge_core.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "metric_snapshots" in migration_text
+    assert "memory_items" in migration_text
+    assert "knowledge_nodes" in migration_text
+    assert "knowledge_edges" in migration_text

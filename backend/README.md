@@ -868,3 +868,308 @@ curl -X PATCH http://127.0.0.1:8000/api/v1/workflow-tasks/TASK_ID/complete \
   -H "X-API-Key: dev-secret" \
   -d '{"output_ref":"agent-output-id"}'
 ```
+
+## Metrics, Memory and Knowledge Core
+
+Fase 8 agrega persistencia para métricas operativas, memoria editorial y relaciones
+de conocimiento básicas. Esto no sustituye analítica externa, embeddings, grafo
+especializado ni verificación humana.
+
+### MetricSnapshot
+
+`MetricSnapshot` guarda capturas de métricas vinculadas a `NewsItem`, `ContentPiece`,
+`DistributionPlan`, `PublicationRecord`, `WorkflowRun`, `WorkflowTask`,
+`AgentExecution` o `AgentOutput`.
+
+Campos relevantes:
+
+- `metric_category`
+- `measurement_window`
+- `metric_name`
+- `metric_value`
+- `snapshot_payload`
+- `source_or_origin`
+- `data_quality`
+- `correlation_id`
+
+Categorías permitidas:
+
+```text
+intake_metrics
+source_metrics
+verification_metrics
+production_metrics
+publication_metrics
+distribution_metrics
+audience_metrics
+editorial_quality_metrics
+calendar_metrics
+agent_metrics
+memory_metrics
+incident_metrics
+workflow_metrics
+```
+
+Ventanas permitidas:
+
+```text
+1h
+24h
+7d
+30d
+90d
+custom
+```
+
+Calidad de dato:
+
+```text
+high
+medium
+low
+insufficient
+unknown
+```
+
+Endpoints:
+
+- `POST /api/v1/metric-snapshots`
+- `GET /api/v1/metric-snapshots`
+- `GET /api/v1/metric-snapshots/{metric_snapshot_id}`
+- `GET /api/v1/news/{news_id}/metric-snapshots`
+- `GET /api/v1/publication-records/{publication_record_id}/metric-snapshots`
+- `GET /api/v1/workflows/{workflow_run_id}/metric-snapshots`
+
+### MemoryItem
+
+`MemoryItem` guarda memoria editorial u operativa aprobable, rechazable,
+invalidable o archivable. No es fuente factual ni verificación de noticia.
+
+Campos relevantes:
+
+- `memory_type`
+- `memory_status`
+- `title`
+- `memory_statement`
+- `source_or_origin`
+- `confidence_level`
+- `persistence_level`
+- `scope`
+- `risk_flags`
+- `expiration_recommendation`
+- `human_review_required`
+- `approved_by`
+- `invalidated_by`
+- `correlation_id`
+
+Tipos permitidos:
+
+```text
+source_memory
+editorial_memory
+verification_memory
+distribution_memory
+incident_memory
+audience_memory
+calendar_memory
+agent_memory
+workflow_memory
+risk_memory
+style_memory
+market_context_memory
+knowledge_memory
+```
+
+Estados permitidos:
+
+```text
+proposed
+approved
+rejected
+needs_review
+needs_source
+needs_context
+duplicate
+expired
+invalidated
+archived
+```
+
+Endpoints:
+
+- `POST /api/v1/memory-items`
+- `GET /api/v1/memory-items`
+- `GET /api/v1/memory-items/{memory_item_id}`
+- `GET /api/v1/news/{news_id}/memory-items`
+- `GET /api/v1/workflows/{workflow_run_id}/memory-items`
+- `PATCH /api/v1/memory-items/{memory_item_id}/approve`
+- `PATCH /api/v1/memory-items/{memory_item_id}/reject`
+- `PATCH /api/v1/memory-items/{memory_item_id}/invalidate`
+- `PATCH /api/v1/memory-items/{memory_item_id}/archive`
+
+Reglas prácticas:
+
+- `source_memory`, `risk_memory` e `incident_memory` activan revisión humana automática si no se envía.
+- No se permite memoria sin `title`, `memory_statement` y `source_or_origin`.
+- No se permite memoria sin relación operativa.
+- No se puede aprobar memoria invalidada.
+- No se puede invalidar memoria archivada.
+
+### Knowledge Core
+
+`KnowledgeNode` y `KnowledgeEdge` persisten un grafo relacional básico en PostgreSQL
+o SQLite, sin grafo externo. `KnowledgeEdge` conecta contexto; no prueba causalidad.
+
+`KnowledgeNode` campos relevantes:
+
+- `node_type`
+- `label`
+- `external_ref`
+- `entity_type`
+- `entity_id`
+- `description`
+- `confidence_level`
+- `status`
+- `source_or_origin`
+- `metadata`
+- `correlation_id`
+
+`KnowledgeEdge` campos relevantes:
+
+- `source_node_id`
+- `target_node_id`
+- `relationship_type`
+- `scope`
+- `confidence_level`
+- `reason`
+- `status`
+- `risk_flags`
+- `metadata`
+- `correlation_id`
+
+Endpoints:
+
+- `POST /api/v1/knowledge/nodes`
+- `GET /api/v1/knowledge/nodes`
+- `GET /api/v1/knowledge/nodes/{node_id}`
+- `POST /api/v1/knowledge/edges`
+- `GET /api/v1/knowledge/edges`
+- `GET /api/v1/knowledge/edges/{edge_id}`
+- `GET /api/v1/knowledge/nodes/{node_id}/edges`
+- `GET /api/v1/knowledge/entity/{entity_type}/{entity_id}`
+
+Relaciones y catálogos:
+
+- `KnowledgeNode` admite tipos como `ContentPiece`, `MemoryItem`, `WorkflowRun`,
+  `AgentOutput`, `AuditCheck` y otros definidos en `app/core/constants.py`.
+- `KnowledgeEdge` admite relaciones como `derived_from`, `validated_by`,
+  `derived_memory_from`, `recommends`, `blocks`, `updates`, `invalidates` y
+  `related_to`.
+- `caused_by` requiere confianza `KC3` o superior.
+- `KnowledgeEdge` no puede apuntarse a sí misma.
+- `KnowledgeNode` y `KnowledgeEdge` guardan `correlation_id`.
+
+### Example flow
+
+```text
+1. Crear PublicationRecord
+2. Crear MetricSnapshot
+3. Crear MemoryItem derivado de la métrica
+4. Aprobar MemoryItem
+5. Crear KnowledgeNode para ContentPiece
+6. Crear KnowledgeNode para MemoryItem
+7. Crear KnowledgeEdge derived_memory_from
+```
+
+### Example curl
+
+Crear métrica:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/metric-snapshots \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "news_item_id": "NEWS_ITEM_ID",
+    "metric_category": "publication_metrics",
+    "measurement_window": "24h",
+    "metric_name": "views",
+    "metric_value": 1200,
+    "snapshot_payload": {"views": 1200},
+    "source_or_origin": "manual editorial capture",
+    "data_quality": "high"
+  }'
+```
+
+Crear memoria:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/memory-items \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "memory_type": "editorial_memory",
+    "title": "Second source rule",
+    "memory_statement": "Critical claims need a second source.",
+    "source_or_origin": "Post-publication review",
+    "news_item_id": "NEWS_ITEM_ID",
+    "confidence_level": "MC3",
+    "persistence_level": "M2",
+    "scope": "project_wide",
+    "expiration_recommendation": "review_quarterly"
+  }'
+```
+
+Crear nodo y edge:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/knowledge/nodes \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "node_type": "MemoryItem",
+    "label": "Second source rule",
+    "entity_type": "memory_item",
+    "entity_id": "MEMORY_ITEM_ID",
+    "confidence_level": "KC3",
+    "status": "approved",
+    "source_or_origin": "Editorial system",
+    "metadata": {"kind": "learning"}
+  }'
+```
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/knowledge/edges \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "source_node_id": "SOURCE_NODE_ID",
+    "target_node_id": "TARGET_NODE_ID",
+    "relationship_type": "derived_memory_from",
+    "scope": "memory_context",
+    "confidence_level": "KC3",
+    "reason": "Memory derived from the editorial artifact.",
+    "status": "approved",
+    "risk_flags": [],
+    "metadata": {"kind": "trace"}
+  }'
+```
+
+## Tests
+
+```bash
+cd backend
+pytest
+ruff check .
+```
+
+La suite actual valida:
+
+- Migraciones Alembic.
+- Auth mínima con API key.
+- Máquina de estados y editorial gates.
+- Editorial core entities.
+- Workflow orchestration.
+- AgentOutput storage.
+- WorkflowTask queue.
+- MetricSnapshot, MemoryItem, KnowledgeNode y KnowledgeEdge.
