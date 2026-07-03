@@ -37,6 +37,8 @@ PERMISSIONS = {
     "ownership.assign",
     "ownership.release",
     "admin.dashboard.read",
+    "operational_audit.read",
+    "operational_audit.create",
 }
 
 EDITORIAL_APPROVAL_PERMISSIONS = {
@@ -104,14 +106,23 @@ AGENT_OPERATOR_PERMISSIONS = {
     "workflow_task.fail",
     "workflow_task.retry",
 }
+OPERATIONAL_AUDIT_READER_PERMISSIONS = {
+    "operational_audit.read",
+}
 
 ROLE_PERMISSIONS: dict[str, set[str]] = {
     "owner": PERMISSIONS,
     "admin": PERMISSIONS,
-    "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS | {"admin.dashboard.read"},
+    "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS
+    | {"admin.dashboard.read"}
+    | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "editor": EDITOR_PERMISSIONS | {"admin.dashboard.read"},
-    "analyst": ANALYST_PERMISSIONS | {"admin.dashboard.read"},
-    "reviewer": REVIEWER_PERMISSIONS | {"admin.dashboard.read"},
+    "analyst": ANALYST_PERMISSIONS
+    | {"admin.dashboard.read"}
+    | OPERATIONAL_AUDIT_READER_PERMISSIONS,
+    "reviewer": REVIEWER_PERMISSIONS
+    | {"admin.dashboard.read"}
+    | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "publisher": PUBLISHER_PERMISSIONS | {"admin.dashboard.read"},
     "agent_operator": AGENT_OPERATOR_PERMISSIONS | {"admin.dashboard.read"},
     "viewer": {"admin.dashboard.read"},

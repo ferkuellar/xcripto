@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.admin_dashboard import (
+    AdminAuditSummary,
     BlockerItem,
     DashboardOverview,
     EditorialWorkQueueItem,
@@ -18,7 +19,7 @@ from app.schemas.admin_dashboard import (
     TaskBoardItem,
     UserWorkload,
 )
-from app.services import admin_dashboard_service
+from app.services import admin_dashboard_service, operational_audit_service
 
 router = APIRouter(
     prefix="/admin",
@@ -141,3 +142,13 @@ async def user_workload(user_id: str, session: SessionDep) -> UserWorkload:
 @router.get("/gaps", response_model=list[OperationalGap])
 async def operational_gaps(session: SessionDep) -> list[OperationalGap]:
     return await admin_dashboard_service.get_operational_gaps(session)
+
+
+@router.get(
+    "/audit/summary",
+    response_model=AdminAuditSummary,
+    dependencies=[Depends(require_permission("operational_audit.read"))],
+)
+async def audit_summary(session: SessionDep) -> AdminAuditSummary:
+    summary = await operational_audit_service.get_admin_audit_summary(session)
+    return AdminAuditSummary.model_validate(summary.model_dump())

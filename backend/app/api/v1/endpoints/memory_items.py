@@ -14,6 +14,7 @@ from app.schemas.memory_item import (
     MemoryItemReject,
 )
 from app.services import metrics_memory_knowledge_service as mmk_service
+from app.services import operational_audit_service
 
 router = APIRouter(tags=["memory-items"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -110,10 +111,25 @@ async def list_workflow_memory_items(
 async def approve_memory_item(
     memory_item_id: str,
     payload: MemoryItemApprove,
+    request: Request,
     session: SessionDep,
 ) -> MemoryItemRead:
     memory = await mmk_service.approve_memory_item(session, memory_item_id, payload.approved_by)
-    return MemoryItemRead.model_validate(memory)
+    response = MemoryItemRead.model_validate(memory)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="memory_event",
+        action="memory.approve",
+        permission="memory.approve",
+        decision="approved",
+        entity_type="MemoryItem",
+        entity_id=memory.id,
+        news_item_id=memory.news_item_id,
+        workflow_run_id=memory.workflow_run_id,
+        metadata={"memory_type": memory.memory_type, "approved_by": memory.approved_by},
+    )
+    return response
 
 
 @router.patch(
@@ -138,12 +154,28 @@ async def reject_memory_item(
 async def invalidate_memory_item(
     memory_item_id: str,
     payload: MemoryItemInvalidate,
+    request: Request,
     session: SessionDep,
 ) -> MemoryItemRead:
     memory = await mmk_service.invalidate_memory_item(
         session, memory_item_id, payload.invalidated_by, payload.reason
     )
-    return MemoryItemRead.model_validate(memory)
+    response = MemoryItemRead.model_validate(memory)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="memory_event",
+        action="memory.invalidate",
+        permission="memory.invalidate",
+        decision="invalidated",
+        entity_type="MemoryItem",
+        entity_id=memory.id,
+        news_item_id=memory.news_item_id,
+        workflow_run_id=memory.workflow_run_id,
+        reason=payload.reason,
+        metadata={"memory_type": memory.memory_type, "invalidated_by": memory.invalidated_by},
+    )
+    return response
 
 
 @router.patch(

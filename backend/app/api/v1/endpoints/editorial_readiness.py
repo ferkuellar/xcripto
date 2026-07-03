@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.editorial_readiness import EditorialReadinessScoreRead
-from app.services import editorial_readiness_service
+from app.services import editorial_readiness_service, operational_audit_service
 
 router = APIRouter(prefix="/editorial-readiness", tags=["editorial-readiness"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -27,7 +27,25 @@ async def calculate_editorial_readiness(
     score = await editorial_readiness_service.calculate_editorial_readiness(
         session, news_id, request.state.correlation_id
     )
-    return EditorialReadinessScoreRead.model_validate(score)
+    response = EditorialReadinessScoreRead.model_validate(score)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="readiness_event",
+        action="readiness.calculate",
+        permission="readiness.calculate",
+        decision="calculated",
+        entity_type="EditorialReadinessScore",
+        entity_id=score.id,
+        news_item_id=score.news_item_id,
+        workflow_run_id=score.workflow_run_id,
+        metadata={
+            "score": score.score,
+            "score_band": score.score_band,
+            "readiness_status": score.readiness_status,
+        },
+    )
+    return response
 
 
 @router.get("/news/{news_id}/latest", response_model=EditorialReadinessScoreRead)

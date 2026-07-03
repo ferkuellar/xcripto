@@ -12,7 +12,7 @@ from app.schemas.agent_output import (
     AgentOutputReject,
     AgentOutputSupersede,
 )
-from app.services import agent_output_service
+from app.services import agent_output_service, operational_audit_service
 
 router = APIRouter(tags=["agent-outputs"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -103,12 +103,28 @@ async def list_workflow_agent_outputs(
 async def accept_agent_output(
     agent_output_id: str,
     payload: AgentOutputAccept,
+    request: Request,
     session: SessionDep,
 ) -> AgentOutputRead:
     output = await agent_output_service.accept_agent_output(
         session, agent_output_id, payload.accepted_by
     )
-    return AgentOutputRead.model_validate(output)
+    response = AgentOutputRead.model_validate(output)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="agent_output_event",
+        action="agent_output.accept",
+        permission="agent_output.accept",
+        decision="accepted",
+        entity_type="AgentOutput",
+        entity_id=output.id,
+        news_item_id=output.news_item_id,
+        workflow_run_id=output.workflow_run_id,
+        agent_output_id=output.id,
+        metadata={"accepted_by": output.accepted_by, "agent_name": output.agent_name},
+    )
+    return response
 
 
 @router.patch(
@@ -119,12 +135,29 @@ async def accept_agent_output(
 async def reject_agent_output(
     agent_output_id: str,
     payload: AgentOutputReject,
+    request: Request,
     session: SessionDep,
 ) -> AgentOutputRead:
     output = await agent_output_service.reject_agent_output(
         session, agent_output_id, payload.rejected_reason
     )
-    return AgentOutputRead.model_validate(output)
+    response = AgentOutputRead.model_validate(output)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="agent_output_event",
+        action="agent_output.reject",
+        permission="agent_output.reject",
+        decision="rejected",
+        entity_type="AgentOutput",
+        entity_id=output.id,
+        news_item_id=output.news_item_id,
+        workflow_run_id=output.workflow_run_id,
+        agent_output_id=output.id,
+        reason=payload.rejected_reason,
+        metadata={"agent_name": output.agent_name},
+    )
+    return response
 
 
 @router.patch(

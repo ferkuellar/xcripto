@@ -13,7 +13,7 @@ from app.schemas.intake import (
     IntakeSignalRead,
     IntakeSignalReject,
 )
-from app.services import intake_service
+from app.services import intake_service, operational_audit_service
 
 router = APIRouter(prefix="/intake", tags=["intake"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -102,7 +102,25 @@ async def promote_signal(
         workflow_type=payload.workflow_type,
         correlation_id=request.state.correlation_id,
     )
-    return IntakeSignalRead.model_validate(signal)
+    response = IntakeSignalRead.model_validate(signal)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="intake_event",
+        action="intake.promote",
+        permission="intake.promote",
+        decision="promoted",
+        entity_type="IntakeSignal",
+        entity_id=signal.id,
+        news_item_id=signal.promoted_news_item_id,
+        metadata={
+            "signal_id": signal.id,
+            "created_workflow": payload.create_workflow,
+            "workflow_type": payload.workflow_type,
+            "promoted_news_item_id": signal.promoted_news_item_id,
+        },
+    )
+    return response
 
 
 @router.patch(

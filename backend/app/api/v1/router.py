@@ -13,6 +13,7 @@ from app.api.v1.endpoints import (
     memory_items,
     metric_snapshots,
     news,
+    operational_audit,
     ownership,
     publication_records,
     risk_reviews,
@@ -26,6 +27,7 @@ from app.api.v1.endpoints import (
 api_router = APIRouter()
 api_router.include_router(admin_dashboard.router)
 api_router.include_router(news.router)
+api_router.include_router(operational_audit.router)
 api_router.include_router(sources.router)
 api_router.include_router(agent_executions.router)
 api_router.include_router(agent_outputs.router)

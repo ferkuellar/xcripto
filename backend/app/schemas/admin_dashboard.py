@@ -170,3 +170,24 @@ class OperationalGap(BaseModel):
     severity: str
     recommended_action: str
     sample_entity_ids: list[str] = Field(default_factory=list)
+
+
+class AdminAuditEventSummary(BaseModel):
+    id: str
+    event_type: str
+    action: str
+    actor_role: str | None
+    entity_type: str | None
+    entity_id: str | None
+    outcome: str
+    decision: str
+    correlation_id: str | None
+    created_at: datetime
+
+
+class AdminAuditSummary(BaseModel):
+    total_events: int
+    events_by_type: dict[str, int] = Field(default_factory=dict)
+    events_by_outcome: dict[str, int] = Field(default_factory=dict)
+    events_by_decision: dict[str, int] = Field(default_factory=dict)
+    recent_events: list[AdminAuditEventSummary] = Field(default_factory=list)

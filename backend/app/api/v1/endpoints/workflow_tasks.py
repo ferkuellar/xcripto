@@ -15,7 +15,7 @@ from app.schemas.workflow_task import (
     WorkflowTaskStart,
 )
 from app.schemas.workflow_task_summary import WorkflowTaskSummary
-from app.services import workflow_task_service
+from app.services import operational_audit_service, workflow_task_service
 
 router = APIRouter(tags=["workflow-tasks"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -136,10 +136,13 @@ async def workflow_task_summary(
 async def start_workflow_task(
     task_id: str,
     payload: WorkflowTaskStart,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.start_workflow_task(session, task_id, payload.assigned_to)
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(session, request, task, "workflow_task.start", "started")
+    return response
 
 
 @router.patch(
@@ -150,6 +153,7 @@ async def start_workflow_task(
 async def complete_workflow_task(
     task_id: str,
     payload: WorkflowTaskComplete,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.complete_workflow_task(
@@ -160,7 +164,9 @@ async def complete_workflow_task(
         output_ref=payload.output_ref,
         completed_with_warnings=payload.completed_with_warnings,
     )
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(session, request, task, "workflow_task.complete", "completed")
+    return response
 
 
 @router.patch(
@@ -171,10 +177,15 @@ async def complete_workflow_task(
 async def fail_workflow_task(
     task_id: str,
     payload: WorkflowTaskFail,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.fail_workflow_task(session, task_id, payload.reason)
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(
+        session, request, task, "workflow_task.fail", "failed", reason=payload.reason
+    )
+    return response
 
 
 @router.patch(
@@ -185,10 +196,15 @@ async def fail_workflow_task(
 async def block_workflow_task(
     task_id: str,
     payload: WorkflowTaskFail,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.block_workflow_task(session, task_id, payload.reason)
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(
+        session, request, task, "workflow_task.block", "blocked", reason=payload.reason
+    )
+    return response
 
 
 @router.patch(
@@ -199,10 +215,15 @@ async def block_workflow_task(
 async def cancel_workflow_task(
     task_id: str,
     payload: WorkflowTaskCancel,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.cancel_workflow_task(session, task_id, payload.reason)
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(
+        session, request, task, "workflow_task.cancel", "cancelled", reason=payload.reason
+    )
+    return response
 
 
 @router.patch(
@@ -213,7 +234,41 @@ async def cancel_workflow_task(
 async def retry_workflow_task(
     task_id: str,
     _payload: WorkflowTaskRetry,
+    request: Request,
     session: SessionDep,
 ) -> WorkflowTaskRead:
     task = await workflow_task_service.retry_workflow_task(session, task_id)
-    return WorkflowTaskRead.model_validate(task)
+    response = WorkflowTaskRead.model_validate(task)
+    await _record_task_event(session, request, task, "workflow_task.retry", "retried")
+    return response
+
+
+async def _record_task_event(
+    session: SessionDep,
+    request: Request,
+    task,
+    action: str,
+    decision: str,
+    reason: str | None = None,
+) -> None:
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="workflow_task_event",
+        action=action,
+        permission=action,
+        decision=decision,
+        outcome="succeeded",
+        entity_type="WorkflowTask",
+        entity_id=task.id,
+        news_item_id=task.news_item_id,
+        workflow_run_id=task.workflow_run_id,
+        workflow_task_id=task.id,
+        agent_output_id=task.agent_output_id,
+        reason=reason,
+        after_state={
+            "task_status": task.task_status,
+            "blocking": task.blocking,
+            "attempt_count": task.attempt_count,
+        },
+    )

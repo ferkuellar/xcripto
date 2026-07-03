@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.user_account import UserAccountCreate, UserAccountRead, UserAccountUpdate
-from app.services import user_account_service
+from app.services import operational_audit_service, user_account_service
 
 router = APIRouter(prefix="/users", tags=["users"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -26,7 +26,20 @@ async def create_user(
     user = await user_account_service.create_user_account(
         session, payload, request.state.correlation_id
     )
-    return UserAccountRead.model_validate(user)
+    response = UserAccountRead.model_validate(user)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="user_event",
+        action="user.create",
+        permission="user.create",
+        decision="created",
+        entity_type="UserAccount",
+        entity_id=user.id,
+        user_id=user.id,
+        metadata={"role": user.role, "status": user.status, "is_system_user": user.is_system_user},
+    )
+    return response
 
 
 @router.get("", response_model=list[UserAccountRead])
@@ -67,10 +80,24 @@ async def get_user(user_id: str, session: SessionDep) -> UserAccountRead:
 async def update_user(
     user_id: str,
     payload: UserAccountUpdate,
+    request: Request,
     session: SessionDep,
 ) -> UserAccountRead:
     user = await user_account_service.update_user_account(session, user_id, payload)
-    return UserAccountRead.model_validate(user)
+    response = UserAccountRead.model_validate(user)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="user_event",
+        action="user.update",
+        permission="user.update",
+        decision="updated",
+        entity_type="UserAccount",
+        entity_id=user.id,
+        user_id=user.id,
+        after_state={"role": user.role, "status": user.status, "is_active": user.is_active},
+    )
+    return response
 
 
 @router.patch(

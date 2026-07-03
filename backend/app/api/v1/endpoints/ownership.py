@@ -11,7 +11,7 @@ from app.schemas.ownership import (
     OwnershipRelease,
     OwnershipTransfer,
 )
-from app.services import ownership_service
+from app.services import operational_audit_service, ownership_service
 
 router = APIRouter(tags=["ownership"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -31,7 +31,26 @@ async def assign_ownership(
     assignment = await ownership_service.assign_ownership(
         session, payload, request.state.correlation_id
     )
-    return OwnershipAssignmentRead.model_validate(assignment)
+    response = OwnershipAssignmentRead.model_validate(assignment)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="ownership_event",
+        action="ownership.assign",
+        permission="ownership.assign",
+        decision="assigned",
+        entity_type="OwnershipAssignment",
+        entity_id=assignment.id,
+        ownership_id=assignment.id,
+        user_id=assignment.user_id,
+        metadata={
+            "ownership_type": assignment.ownership_type,
+            "target_user_id": assignment.user_id,
+            "assigned_entity_type": assignment.entity_type,
+            "assigned_entity_id": assignment.entity_id,
+        },
+    )
+    return response
 
 
 @router.get("/ownership", response_model=list[OwnershipAssignmentRead])
@@ -100,12 +119,28 @@ async def list_entity_ownership(
 async def release_ownership(
     ownership_id: str,
     payload: OwnershipRelease,
+    request: Request,
     session: SessionDep,
 ) -> OwnershipAssignmentRead:
     assignment = await ownership_service.release_ownership(
         session, ownership_id, payload.reason
     )
-    return OwnershipAssignmentRead.model_validate(assignment)
+    response = OwnershipAssignmentRead.model_validate(assignment)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="ownership_event",
+        action="ownership.release",
+        permission="ownership.release",
+        decision="released",
+        entity_type="OwnershipAssignment",
+        entity_id=assignment.id,
+        ownership_id=assignment.id,
+        user_id=assignment.user_id,
+        reason=payload.reason,
+        after_state={"status": assignment.status},
+    )
+    return response
 
 
 @router.patch(
@@ -116,6 +151,7 @@ async def release_ownership(
 async def transfer_ownership(
     ownership_id: str,
     payload: OwnershipTransfer,
+    request: Request,
     session: SessionDep,
 ) -> OwnershipAssignmentRead:
     assignment = await ownership_service.transfer_ownership(
@@ -125,7 +161,25 @@ async def transfer_ownership(
         assigned_by=payload.assigned_by,
         notes=payload.notes,
     )
-    return OwnershipAssignmentRead.model_validate(assignment)
+    response = OwnershipAssignmentRead.model_validate(assignment)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="ownership_event",
+        action="ownership.transfer",
+        permission="ownership.assign",
+        decision="transferred",
+        entity_type="OwnershipAssignment",
+        entity_id=assignment.id,
+        ownership_id=assignment.id,
+        user_id=assignment.user_id,
+        metadata={
+            "previous_ownership_id": ownership_id,
+            "new_user_id": payload.new_user_id,
+            "ownership_type": assignment.ownership_type,
+        },
+    )
+    return response
 
 
 @router.get("/ownership/{ownership_id}", response_model=OwnershipAssignmentRead)

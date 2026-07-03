@@ -11,6 +11,7 @@ from app.models.knowledge_node import KnowledgeNode
 from app.models.memory_item import MemoryItem
 from app.models.metric_snapshot import MetricSnapshot
 from app.models.news_item import NewsItem
+from app.models.operational_audit_log import OperationalAuditLog
 from app.models.ownership_assignment import OwnershipAssignment
 from app.models.publication_record import PublicationRecord
 from app.models.risk_review import RiskReview
@@ -35,6 +36,7 @@ __all__ = [
     "MemoryItem",
     "MetricSnapshot",
     "NewsItem",
+    "OperationalAuditLog",
     "OwnershipAssignment",
     "PublicationRecord",
     "RiskReview",

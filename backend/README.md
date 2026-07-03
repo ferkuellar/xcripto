@@ -12,6 +12,8 @@ promoverlas a noticias.
 Fase 11 agrega usuarios internos, roles mínimos, ownership operativo y permisos por
 headers para acciones críticas.
 Fase 12 agrega read models administrativos para el futuro dashboard operativo.
+Fase 13 agrega `OperationalAuditLog` para trazabilidad operativa persistente de
+acciones críticas, actores, permisos, decisiones, resultados y `correlation_id`.
 
 ## Stack
 
@@ -149,6 +151,7 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `POST /api/v1/ownership/assign`
 - `PATCH /api/v1/ownership/{ownership_id}/release`
 - `PATCH /api/v1/ownership/{ownership_id}/transfer`
+- `POST /api/v1/operational-audit/events`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -225,10 +228,15 @@ user.create
 user.update
 ownership.assign
 ownership.release
+operational_audit.read
+operational_audit.create
 ```
 
 `owner`, `admin` y `system` tienen permisos completos. `viewer` es de solo lectura.
 Los demás roles tienen permisos acotados a su área editorial u operativa.
+`operational_audit.read` queda disponible para `owner`, `admin`, `system`,
+`editor_in_chief`, `analyst` y `reviewer`; `viewer` no puede leer el audit log
+operacional por defecto.
 
 ### UserAccount
 
@@ -460,6 +468,16 @@ Respuesta esperada: HTTP 403 `Insufficient permission`.
 - `GET /api/v1/admin/ownership/board`
 - `GET /api/v1/admin/users/{user_id}/workload`
 - `GET /api/v1/admin/gaps`
+- `GET /api/v1/admin/audit/summary`
+
+### Operational Audit Log
+
+- `POST /api/v1/operational-audit/events`
+- `GET /api/v1/operational-audit/events` - filtros `event_type`, `action`, `permission`, `actor_id`, `actor_role`, `entity_type`, `entity_id`, `news_item_id`, `workflow_run_id`, `workflow_task_id`, `agent_output_id`, `outcome`, `decision`, `correlation_id`, `limit`, `offset`
+- `GET /api/v1/operational-audit/events/{event_id}`
+- `GET /api/v1/operational-audit/correlation/{correlation_id}`
+- `GET /api/v1/operational-audit/actors/{actor_id}`
+- `GET /api/v1/operational-audit/entity/{entity_type}/{entity_id}`
 
 ## Admin Read Models
 
@@ -512,6 +530,8 @@ curl http://127.0.0.1:8000/api/v1/admin/dashboard/overview \
 - User workload: asignaciones, tasks, noticias owned y revisiones por usuario.
 - Operational gaps: brechas como noticias sin verificación, publicaciones sin métricas,
   agent outputs pendientes y tareas sin owner.
+- Audit summary: conteos por tipo, outcome, decision y eventos recientes del
+  `OperationalAuditLog`.
 
 Ejemplos:
 
@@ -535,6 +555,168 @@ curl "http://127.0.0.1:8000/api/v1/admin/readiness/board?score_band=blocked" \
 
 ```bash
 curl "http://127.0.0.1:8000/api/v1/admin/ownership/board" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/admin/audit/summary" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+## Operational Audit Log
+
+Fase 13 agrega `OperationalAuditLog`, una bitácora operacional persistente para
+acciones críticas de XMIP. Registra actor, rol, permiso evaluado, acción, entidad,
+decisión, outcome, metadata mínima y `correlation_id`.
+
+No reemplaza `AuditCheck`: `AuditCheck` gobierna revisión editorial de contenido.
+`OperationalAuditLog` solo registra trazabilidad operativa. No aprueba, no publica,
+no ejecuta acciones y no debe guardar secretos, API keys ni payloads sensibles completos.
+
+Campos principales:
+
+- `event_type`
+- `action`
+- `permission`
+- `actor_id`, `actor_role`, `actor_display`, `actor_source`
+- `request_method`, `request_path`
+- `entity_type`, `entity_id`
+- referencias opcionales a `news_item_id`, `workflow_run_id`, `workflow_task_id`,
+  `agent_output_id`, `ownership_id` y `user_id`
+- `outcome`, `decision`, `reason`
+- `before_state`, `after_state`, `metadata`
+- `error_code`, `error_message`
+- `correlation_id`
+
+Tipos de evento:
+
+```text
+auth_event
+rbac_event
+intake_event
+news_event
+source_event
+verification_event
+risk_event
+content_event
+audit_event
+distribution_event
+publication_event
+workflow_event
+workflow_task_event
+agent_output_event
+memory_event
+knowledge_event
+readiness_event
+user_event
+ownership_event
+admin_event
+system_event
+```
+
+Outcomes:
+
+```text
+allowed
+denied
+succeeded
+failed
+blocked
+skipped
+cancelled
+```
+
+Decisiones:
+
+```text
+allow
+deny
+created
+updated
+deleted
+accepted
+rejected
+approved
+invalidated
+archived
+promoted
+calculated
+assigned
+released
+transferred
+started
+completed
+failed
+blocked
+cancelled
+retried
+no_op
+error
+```
+
+Acciones críticas auditadas:
+
+- promover señal a noticia.
+- calcular readiness.
+- crear `AuditCheck`.
+- crear `PublicationRecord`.
+- cambiar estado de publicación.
+- aceptar o rechazar `AgentOutput`.
+- aprobar o invalidar `MemoryItem`.
+- crear o actualizar `UserAccount`.
+- asignar, liberar o transferir ownership.
+- iniciar, completar, fallar, bloquear, cancelar o reintentar `WorkflowTask`.
+
+Crear evento manual o de sistema:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/operational-audit/events \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin" \
+  -d '{
+    "event_type": "system_event",
+    "action": "system.manual_note",
+    "permission": "operational_audit.create",
+    "actor_role": "admin",
+    "entity_type": "System",
+    "entity_id": "manual-1",
+    "outcome": "succeeded",
+    "decision": "created",
+    "metadata": {"note": "Manual audit event without secrets."}
+  }'
+```
+
+Consultar eventos:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/operational-audit/events?event_type=publication_event" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Consultar por correlation:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/operational-audit/correlation/CORRELATION_ID \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Consultar por actor:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/operational-audit/actors/ACTOR_ID \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Consultar por entidad:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/operational-audit/entity/NewsItem/NEWS_ITEM_ID \
   -H "X-API-Key: dev-secret" \
   -H "X-Actor-Role: admin"
 ```
@@ -1674,6 +1856,7 @@ La suite actual valida:
 - IntakeSignal, IntakeAdapterRun, normalización, deduplicación y promoción.
 - UserAccount, OwnershipAssignment y RBAC mínimo por headers.
 - Admin Read Models / Operational Dashboard API.
+- OperationalAuditLog, endpoints de audit operacional, RBAC y acciones críticas auditadas.
 
 ## Editorial Readiness Scoring
 
