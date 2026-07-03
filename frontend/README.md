@@ -4,8 +4,39 @@ Frontend del **Newsroom OS** de XCripto: una plataforma interna para detectar no
 validar fuentes, revisar riesgos, producir contenido, calendarizar publicaciones y
 operar agentes editoriales con trazabilidad completa.
 
-> Todos los datos de esta versión son **mock data ficticia de demostración**.
-> No hay backend, autenticación ni llamadas a APIs externas.
+## Integración con backend
+
+El frontend consume el **backend XMIP real** (FastAPI, `/api/v1`) para los módulos
+operativos principales; los widgets sin endpoint disponible muestran datos de
+demostración claramente etiquetados con un badge `DEMO`.
+
+| Módulo               | Fuente de datos                                             |
+| -------------------- | ----------------------------------------------------------- |
+| Command Center KPIs  | ✅ Real — news, intake signals, executions, audit checks    |
+| Últimas noticias     | ✅ Real — `GET /api/v1/news`                                |
+| News Intake          | ✅ Real — signals + promote / reject / dedupe / alta manual |
+| Source Validation    | ✅ Real — `GET/POST /api/v1/sources`                        |
+| Agents               | ✅ Real — `GET /api/v1/agents/executions` por agente        |
+| Audit                | ✅ Real — `GET /api/v1/audit/checks`                        |
+| Estado del backend   | ✅ Real — `GET /health` con poll cada 30 s (Topbar)         |
+| Pipeline board, risk queues, calendario, métricas, notificaciones | ⚠️ DEMO — pendientes de endpoint |
+
+Capa de integración: `src/lib/api.ts` (cliente), `src/lib/api-types.ts` (contratos),
+`src/hooks/useApi.ts` (loading/error/refetch + health). Estados async en
+`src/components/ui/async-state.tsx`. Mock data aislada en `src/data/mock-*.ts`
+con advertencia en el encabezado.
+
+### Variables de entorno
+
+Copia `.env.example` a `.env.local`:
+
+| Variable            | Default                  | Descripción                                                   |
+| ------------------- | ------------------------ | ------------------------------------------------------------- |
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000`  | Base del backend XMIP, sin slash final                        |
+| `VITE_API_KEY`      | *(vacío)*                | Solo si el backend corre con `AUTH_ENABLED=true` (escrituras) |
+
+Si el backend está apagado, la UI lo indica ("XMIP sin conexión" en el topbar) y
+cada módulo muestra un estado de error con reintento — no pantallas rotas.
 
 ## Stack
 

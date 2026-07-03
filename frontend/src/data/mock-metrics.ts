@@ -1,3 +1,6 @@
+// ⚠️ DEMO DATA — datos ficticios de demostración, NO provienen del backend.
+// Cada consumidor de este archivo debe migrar a la API real (src/lib/api.ts)
+// cuando exista el endpoint correspondiente, y entonces eliminar lo que use de aquí.
 // Series de métricas ficticias para las gráficas del dashboard.
 
 export const productionByDay = [
