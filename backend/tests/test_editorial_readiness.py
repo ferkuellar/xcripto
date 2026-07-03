@@ -529,3 +529,47 @@ async def test_auth_protects_calculate(client, monkeypatch):
     response = await client.post(f"/api/v1/editorial-readiness/news/{news['id']}/calculate")
 
     assert response.status_code == 401
+
+
+# --- Regression: calculate must not use a stale workflow snapshot (P1 fix #1) ---
+
+
+async def test_calculate_refreshes_stale_workflow_requirements(client):
+    news = await create_news_item(client)
+    workflow = await create_workflow(client, news["id"])
+    assert "VerificationRecord" in workflow["missing_requirements"]
+
+    await create_verification(client, news["id"])
+    # Sin recalcular el workflow manualmente: calculate debe refrescarlo solo.
+    score = await calculate_score(client, news["id"])
+
+    assert "VerificationRecord" not in score["missing_requirements"]
+    assert score["verification_score"] > 0
+
+
+async def test_calculate_without_workflow_still_works(client):
+    news = await create_news_item(client)
+    await create_verification(client, news["id"])
+
+    score = await calculate_score(client, news["id"])
+
+    assert score["workflow_run_id"] is None
+    assert "VerificationRecord" not in score["missing_requirements"]
+
+
+async def test_calculate_with_blocked_workflow_keeps_real_blockers(client):
+    news = await create_news_item(client)
+    await create_workflow(client, news["id"])
+    await create_verification(client, news["id"])
+    await create_risk_review(
+        client,
+        news["id"],
+        risk_level="critical",
+        decision_recommendation="block_publication",
+        publication_block_recommended=True,
+    )
+
+    score = await calculate_score(client, news["id"])
+
+    assert score["readiness_status"] == "blocked"
+    assert score["blocking_reasons"]

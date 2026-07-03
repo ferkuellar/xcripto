@@ -47,6 +47,15 @@ async def calculate_editorial_readiness(
     correlation_id: str | None = None,
     calculated_by: str = "system",
 ) -> EditorialReadinessScore:
+    # El snapshot de WorkflowRun (missing_requirements/blocking_reasons) solo se
+    # actualiza al recalcular el workflow; sin esto, calculate reportaría como
+    # faltantes requisitos ya cumplidos. explain() se mantiene read-only.
+    workflow = await _latest_by_news(session, WorkflowRun, news_item_id)
+    if workflow is not None:
+        from app.services import workflow_service
+
+        await workflow_service.recalculate_workflow_run(session, workflow.id)
+
     payload = await explain_editorial_readiness(session, news_item_id, calculated_by=calculated_by)
     score = EditorialReadinessScore(**payload)
     if score.correlation_id is None:
