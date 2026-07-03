@@ -88,6 +88,27 @@ curl http://127.0.0.1:8000/api/v1/admin/dashboard/overview \
   -H "X-Actor-Role: admin"
 ```
 
+## Internal Agent Runner
+
+Validate runner read access:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/agent-runner/capabilities \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Validate runner dashboard summary:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/agent-runner/summary \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Do not configure external AI credentials for this phase. The runner is local,
+deterministic, and must not publish or approve content automatically.
+
 ## Smoke Test
 
 ```bash

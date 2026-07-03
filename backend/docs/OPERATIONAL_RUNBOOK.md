@@ -96,6 +96,67 @@ curl http://127.0.0.1:8000/api/v1/admin/dashboard/overview \
   -H "X-Actor-Role: admin"
 ```
 
+## Internal Agent Runner
+
+El Internal Agent Runner ejecuta tareas de agente de forma local y determinística.
+No llama modelos reales, no publica y no aprueba contenido. Crea `AgentExecution`,
+`AgentOutput`, actualiza `WorkflowTask` y registra `OperationalAuditLog`.
+
+Consultar capacidades:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/agent-runner/capabilities \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Dry-run sin modificar estado:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/tasks/TASK_ID/dry-run \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Ejecutar una tarea:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/tasks/TASK_ID/run \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"force":false,"runner":"internal"}'
+```
+
+Ejecutar la siguiente tarea elegible de un workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/workflows/WORKFLOW_ID/run-next \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"force":false,"runner":"internal"}'
+```
+
+Revisar ejecuciones recientes y summary operativo:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/agent-runner/runs \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+
+curl http://127.0.0.1:8000/api/v1/admin/agent-runner/summary \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Problemas comunes:
+
+- HTTP 403: usar `X-Actor-Role: agent_operator`, `admin`, `owner` o `editor_in_chief`.
+- `WorkflowTask is not eligible`: revisar `task_status`, `task_type` y `assigned_agent`.
+- `blocked` con `force=false`: revisar `blocking_reason`; usar `force=true` solo con criterio operativo.
+- Output en `pending_review`: revisar `AgentOutput`; no usarlo como fuente factual ni aprobación.
+
 ## Smoke Test
 
 ```bash

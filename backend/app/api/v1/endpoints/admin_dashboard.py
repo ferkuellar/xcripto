@@ -6,6 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.admin_dashboard import (
+    AdminAgentRunnerSummary,
     AdminAuditSummary,
     BlockerItem,
     DashboardOverview,
@@ -19,7 +20,7 @@ from app.schemas.admin_dashboard import (
     TaskBoardItem,
     UserWorkload,
 )
-from app.services import admin_dashboard_service, operational_audit_service
+from app.services import admin_dashboard_service, agent_runner_service, operational_audit_service
 
 router = APIRouter(
     prefix="/admin",
@@ -152,3 +153,13 @@ async def operational_gaps(session: SessionDep) -> list[OperationalGap]:
 async def audit_summary(session: SessionDep) -> AdminAuditSummary:
     summary = await operational_audit_service.get_admin_audit_summary(session)
     return AdminAuditSummary.model_validate(summary.model_dump())
+
+
+@router.get(
+    "/agent-runner/summary",
+    response_model=AdminAgentRunnerSummary,
+    dependencies=[Depends(require_permission("agent_runner.read"))],
+)
+async def agent_runner_summary(session: SessionDep) -> AdminAgentRunnerSummary:
+    summary = await agent_runner_service.get_admin_agent_runner_summary(session)
+    return AdminAgentRunnerSummary.model_validate(summary.model_dump())

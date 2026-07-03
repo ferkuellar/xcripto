@@ -4,6 +4,7 @@ from app.api.v1.endpoints import (
     admin_dashboard,
     agent_executions,
     agent_outputs,
+    agent_runner,
     audit_checks,
     content_pieces,
     distribution_plans,
@@ -26,6 +27,7 @@ from app.api.v1.endpoints import (
 
 api_router = APIRouter()
 api_router.include_router(admin_dashboard.router)
+api_router.include_router(agent_runner.router)
 api_router.include_router(news.router)
 api_router.include_router(operational_audit.router)
 api_router.include_router(sources.router)

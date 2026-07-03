@@ -230,6 +230,7 @@ AGENT_NAMES = {
     "KnowledgeAgent",
     "CalendarAgent",
     "MetricsAgent",
+    "System",
 }
 AGENT_OUTPUT_TYPES = {
     "news_scout_report",
@@ -274,6 +275,7 @@ AGENT_OUTPUT_TYPES_BY_AGENT = {
     },
     "CalendarAgent": {"calendar_recommendation", "generic_agent_output", "workflow_recommendation"},
     "MetricsAgent": {"metrics_review", "generic_agent_output", "workflow_recommendation"},
+    "System": {"workflow_recommendation", "generic_agent_output"},
 }
 AGENT_OUTPUT_STATUSES = {
     "created",

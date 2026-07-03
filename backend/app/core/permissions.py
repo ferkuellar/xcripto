@@ -39,6 +39,8 @@ PERMISSIONS = {
     "admin.dashboard.read",
     "operational_audit.read",
     "operational_audit.create",
+    "agent_runner.read",
+    "agent_runner.run",
 }
 
 EDITORIAL_APPROVAL_PERMISSIONS = {
@@ -100,6 +102,8 @@ AGENT_OPERATOR_PERMISSIONS = {
     "agent_output.create",
     "agent_output.accept",
     "agent_output.reject",
+    "agent_runner.read",
+    "agent_runner.run",
     "workflow_task.create",
     "workflow_task.start",
     "workflow_task.complete",
@@ -115,15 +119,18 @@ ROLE_PERMISSIONS: dict[str, set[str]] = {
     "admin": PERMISSIONS,
     "editor_in_chief": EDITORIAL_APPROVAL_PERMISSIONS
     | {"admin.dashboard.read"}
+    | {"agent_runner.read", "agent_runner.run"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
-    "editor": EDITOR_PERMISSIONS | {"admin.dashboard.read"},
+    "editor": EDITOR_PERMISSIONS | {"admin.dashboard.read", "agent_runner.read"},
     "analyst": ANALYST_PERMISSIONS
     | {"admin.dashboard.read"}
+    | {"agent_runner.read"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
     "reviewer": REVIEWER_PERMISSIONS
     | {"admin.dashboard.read"}
+    | {"agent_runner.read"}
     | OPERATIONAL_AUDIT_READER_PERMISSIONS,
-    "publisher": PUBLISHER_PERMISSIONS | {"admin.dashboard.read"},
+    "publisher": PUBLISHER_PERMISSIONS | {"admin.dashboard.read", "agent_runner.read"},
     "agent_operator": AGENT_OPERATOR_PERMISSIONS | {"admin.dashboard.read"},
     "viewer": {"admin.dashboard.read"},
     "system": PERMISSIONS,

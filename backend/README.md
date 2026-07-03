@@ -16,6 +16,8 @@ Fase 13 agrega `OperationalAuditLog` para trazabilidad operativa persistente de
 acciones críticas, actores, permisos, decisiones, resultados y `correlation_id`.
 Fase 14 endurece configuración, CORS, logging estructurado, health/readiness,
 Docker, smoke tests y documentación operativa para deploy del MVP.
+Fase 15 agrega un Internal Agent Runner síncrono y determinístico para ejecutar
+`WorkflowTask` elegibles sin modelos reales ni integraciones externas.
 
 ## Stack
 
@@ -1899,6 +1901,137 @@ La suite actual valida:
 - OperationalAuditLog, endpoints de audit operacional, RBAC y acciones críticas auditadas.
 - Production hardening: `/live`, `/ready`, CORS configurable, request logging,
   smoke test, Docker y documentación operativa.
+- Internal Agent Runner: dry-run, ejecución local determinística, `AgentExecution`,
+  `AgentOutput`, completion de `WorkflowTask` y audit operacional.
+
+## Internal Agent Runner
+
+Fase 15 agrega `/api/v1/agent-runner`, un runner interno síncrono para tomar una
+`WorkflowTask`, producir un `AgentExecution`, guardar un `AgentOutput` estructurado,
+completar o fallar la tarea y registrar `OperationalAuditLog`.
+
+El runner no llama OpenAI, Anthropic, Hermes ni APIs externas. No ejecuta modelos
+reales, no publica, no aprueba contenido y no crea entidades canónicas como
+`VerificationRecord`, `RiskReview`, `ContentPiece` o `AuditCheck`. Sus outputs son
+auxiliares y auditables; `AgentOutput` no es fuente factual.
+
+### Agentes soportados
+
+```text
+NewsScoutAgent
+SourceValidatorAgent
+RiskAgent
+MarketImpactAgent
+EditorialAgent
+ScriptAgent
+SocialClipAgent
+DistributionAgent
+AuditAgent
+MemoryAgent
+KnowledgeAgent
+CalendarAgent
+MetricsAgent
+System
+```
+
+Mapeo principal `task_type -> agent -> output_type`:
+
+```text
+news_intake -> NewsScoutAgent -> news_scout_report
+source_validation -> SourceValidatorAgent -> source_review
+market_impact_assessment -> MarketImpactAgent -> market_impact_assessment
+risk_review -> RiskAgent -> risk_review
+editorial_draft -> EditorialAgent -> editorial_output
+script_generation -> ScriptAgent -> script_output
+social_variant_generation -> SocialClipAgent -> social_output
+distribution_planning -> DistributionAgent -> distribution_plan_output
+audit_check -> AuditAgent -> audit_check_output
+calendar_scheduling -> CalendarAgent -> calendar_recommendation
+metrics_review -> MetricsAgent -> metrics_review
+memory_review -> MemoryAgent -> memory_proposal
+knowledge_update -> KnowledgeAgent -> knowledge_graph_proposal
+workflow_recalculation -> System -> workflow_recommendation
+generic_task -> System -> workflow_recommendation
+```
+
+`RiskAgent`, `AuditAgent`, `MemoryAgent` y `KnowledgeAgent` marcan
+`human_review_required=true` por defecto.
+
+### Endpoints
+
+- `GET /api/v1/agent-runner/capabilities`
+- `POST /api/v1/agent-runner/tasks/{task_id}/dry-run`
+- `POST /api/v1/agent-runner/tasks/{task_id}/run`
+- `POST /api/v1/agent-runner/workflows/{workflow_run_id}/run-next`
+- `GET /api/v1/agent-runner/runs`
+- `GET /api/v1/admin/agent-runner/summary`
+
+Permisos RBAC:
+
+```text
+agent_runner.read
+agent_runner.run
+```
+
+`owner`, `admin`, `editor_in_chief`, `agent_operator` y `system` pueden ejecutar.
+`editor`, `analyst`, `reviewer` y `publisher` pueden leer. `viewer` no ejecuta.
+Cuando `AUTH_ENABLED=false`, se mantiene compatibilidad local.
+
+### Ejemplos curl
+
+Capabilities:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/agent-runner/capabilities \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Dry-run:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/tasks/TASK_ID/dry-run \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Run task:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/tasks/TASK_ID/run \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"force":false,"runner":"internal"}'
+```
+
+Run next task for a workflow:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/agent-runner/workflows/WORKFLOW_ID/run-next \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator" \
+  -d '{"force":false,"runner":"internal"}'
+```
+
+Recent runs:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/agent-runner/runs?agent_name=SourceValidatorAgent" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: agent_operator"
+```
+
+Revisar trazabilidad:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/agents/executions?agent_name=SourceValidatorAgent"
+curl "http://127.0.0.1:8000/api/v1/agent-outputs?agent_name=SourceValidatorAgent"
+curl "http://127.0.0.1:8000/api/v1/operational-audit/events?action=agent_runner.run_task" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
 
 ## Production Hardening / Deploy Readiness
 

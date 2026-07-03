@@ -3,6 +3,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.schemas.agent_runner import AgentRunnerRecentRunItem
+
 
 class DashboardOverview(BaseModel):
     total_news: int
@@ -191,3 +193,12 @@ class AdminAuditSummary(BaseModel):
     events_by_outcome: dict[str, int] = Field(default_factory=dict)
     events_by_decision: dict[str, int] = Field(default_factory=dict)
     recent_events: list[AdminAuditEventSummary] = Field(default_factory=list)
+
+
+class AdminAgentRunnerSummary(BaseModel):
+    total_internal_runs: int
+    completed_runs: int
+    failed_runs: int
+    outputs_pending_review: int
+    tasks_eligible_for_runner: int
+    recent_runs: list[AgentRunnerRecentRunItem] = Field(default_factory=list)
