@@ -202,3 +202,34 @@ class AdminAgentRunnerSummary(BaseModel):
     outputs_pending_review: int
     tasks_eligible_for_runner: int
     recent_runs: list[AgentRunnerRecentRunItem] = Field(default_factory=list)
+
+
+class FrontendFeatureFlags(BaseModel):
+    admin_dashboard: bool = True
+    agent_runner: bool = True
+    connectors: bool = True
+    operational_audit: bool = True
+    readiness_scoring: bool = True
+
+
+class FrontendConfig(BaseModel):
+    app_name: str
+    app_version: str
+    environment: str
+    auth_enabled: bool
+    rbac_enabled: bool
+    features: FrontendFeatureFlags
+    required_headers: list[str] = Field(default_factory=list)
+
+
+class FrontendRouteMapItem(BaseModel):
+    label: str
+    path: str
+    method: str
+    permission: str | None
+    frontend_section: str
+
+
+class FrontendRouteMapGroup(BaseModel):
+    group: str
+    routes: list[FrontendRouteMapItem]

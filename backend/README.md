@@ -2185,6 +2185,93 @@ curl http://127.0.0.1:8000/api/v1/admin/connectors/summary \
   -H "X-Actor-Role: admin"
 ```
 
+## Frontend/Admin Integration
+
+Fase 17 deja el contrato backend/admin listo para que un dashboard React/Vite se
+integre sin modificar todavía `frontend/`.
+
+Documentos principales:
+
+- `docs/FRONTEND_ADMIN_API_CONTRACT.md`
+- `docs/FRONTEND_ADMIN_INTEGRATION_GUIDE.md`
+- `docs/API_ERROR_CONTRACT.md`
+- `docs/API_AUTH_RBAC_CONTRACT.md`
+
+Base URL local:
+
+```text
+http://127.0.0.1:8000
+```
+
+Variables Vite sugeridas para desarrollo interno:
+
+```env
+VITE_API_BASE_URL=http://127.0.0.1:8000
+VITE_API_KEY=dev-secret
+VITE_ACTOR_ROLE=admin
+```
+
+Headers principales:
+
+```text
+X-API-Key
+X-Actor-Role
+X-Actor-Id
+X-Correlation-ID
+```
+
+`VITE_API_KEY` solo es aceptable para desarrollo local o admin interno controlado.
+No debe exponerse una API key productiva a usuarios finales. La fase futura de
+auth debe reemplazar esto con login real y JWT/OAuth/sesiones.
+
+Endpoints frontend-safe:
+
+- `GET /api/v1/admin/frontend/config`
+- `GET /api/v1/admin/frontend/route-map`
+
+`frontend/config` expone solo datos seguros como nombre, versión, ambiente,
+features habilitadas y headers requeridos. No devuelve `API_KEY`, `DATABASE_URL`
+ni secretos.
+
+Ejemplo:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/frontend/config \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Exportar OpenAPI sin levantar servidor:
+
+```bash
+cd backend
+python scripts/export_openapi.py --output docs/openapi.json
+```
+
+Validar contrato admin contra un backend corriendo:
+
+```bash
+python scripts/admin_contract_smoke.py \
+  --base-url http://127.0.0.1:8000 \
+  --api-key dev-secret \
+  --actor-role admin
+```
+
+Endpoints principales para el dashboard:
+
+- `GET /api/v1/admin/dashboard/overview`
+- `GET /api/v1/admin/dashboard/newsroom-health`
+- `GET /api/v1/admin/intake/queue`
+- `GET /api/v1/admin/editorial/work-queue`
+- `GET /api/v1/admin/blockers`
+- `GET /api/v1/admin/readiness/board`
+- `GET /api/v1/admin/tasks/board`
+- `GET /api/v1/admin/publications/board`
+- `GET /api/v1/admin/ownership/board`
+- `GET /api/v1/admin/agent-runner/summary`
+- `GET /api/v1/admin/connectors/summary`
+- `GET /api/v1/admin/audit/summary`
+
 ## Production Hardening / Deploy Readiness
 
 Fase 14 deja el backend listo para conectarse con el futuro frontend/admin sin

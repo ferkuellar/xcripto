@@ -151,6 +151,36 @@ python scripts/smoke_test.py \
   --create-intake-signal
 ```
 
+## Frontend/Admin Contract
+
+Export OpenAPI for frontend/admin contract review:
+
+```bash
+cd backend
+python scripts/export_openapi.py --output docs/openapi.json
+```
+
+Validate the read-only admin contract against a running backend:
+
+```bash
+python scripts/admin_contract_smoke.py \
+  --base-url http://127.0.0.1:8000 \
+  --api-key dev-secret \
+  --actor-role admin
+```
+
+Confirm these frontend-safe endpoints do not expose secrets:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/frontend/config \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+
+curl http://127.0.0.1:8000/api/v1/admin/frontend/route-map \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
 ## Tests and Lint
 
 ```bash

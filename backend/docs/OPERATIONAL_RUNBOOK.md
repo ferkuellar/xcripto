@@ -225,6 +225,46 @@ Problemas comunes:
 - Dry-run bloqueado: revisar si el conector esta `archived`, `disabled`, `blocked` o `enabled=false`.
 - `auth_type` con referencia: `api_key_ref`, `bearer_token_ref`, `oauth_ref`, `basic_ref` y `signed_request_ref` deben tener `secret_ref`.
 
+## Frontend/Admin Contract
+
+Consultar configuracion segura para UI:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/frontend/config \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Consultar mapa de rutas operativo:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/admin/frontend/route-map \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+```
+
+Exportar OpenAPI:
+
+```bash
+python scripts/export_openapi.py --output docs/openapi.json
+```
+
+Validar contrato admin contra un backend levantado:
+
+```bash
+python scripts/admin_contract_smoke.py \
+  --base-url http://127.0.0.1:8000 \
+  --api-key dev-secret \
+  --actor-role admin
+```
+
+Problemas comunes:
+
+- HTTP 401: falta `X-API-Key` con `AUTH_ENABLED=true`.
+- HTTP 403: `X-Actor-Role` no tiene permisos para el panel o summary consultado.
+- HTTP 503: `/ready` indica que la DB o configuracion no estan listas.
+- El frontend no debe exponer API keys productivas a usuarios finales.
+
 ## Smoke Test
 
 ```bash

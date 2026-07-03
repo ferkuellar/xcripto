@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.admin_dashboard import (
@@ -11,6 +12,10 @@ from app.schemas.admin_dashboard import (
     BlockerItem,
     DashboardOverview,
     EditorialWorkQueueItem,
+    FrontendConfig,
+    FrontendFeatureFlags,
+    FrontendRouteMapGroup,
+    FrontendRouteMapItem,
     IntakeQueueItem,
     NewsroomHealth,
     OperationalGap,
@@ -179,3 +184,179 @@ async def agent_runner_summary(session: SessionDep) -> AdminAgentRunnerSummary:
 async def connectors_summary(session: SessionDep) -> AdminConnectorsSummary:
     summary = await external_connector_service.get_admin_connectors_summary(session)
     return AdminConnectorsSummary.model_validate(summary.model_dump())
+
+
+@router.get("/frontend/config", response_model=FrontendConfig)
+async def frontend_config() -> FrontendConfig:
+    settings = get_settings()
+    required_headers = ["X-Correlation-ID"]
+    if settings.auth_enabled:
+        required_headers.extend([settings.api_key_header_name, "X-Actor-Role"])
+    return FrontendConfig(
+        app_name=settings.app_name,
+        app_version=settings.app_version,
+        environment=settings.environment,
+        auth_enabled=settings.auth_enabled,
+        rbac_enabled=True,
+        features=FrontendFeatureFlags(),
+        required_headers=required_headers,
+    )
+
+
+@router.get("/frontend/route-map", response_model=list[FrontendRouteMapGroup])
+async def frontend_route_map() -> list[FrontendRouteMapGroup]:
+    return [
+        _route_group(
+            "health",
+            [
+                ("Health", "/health", "GET", None),
+                ("Live", "/live", "GET", None),
+                ("Ready", "/ready", "GET", None),
+            ],
+        ),
+        _route_group(
+            "dashboard",
+            [
+                ("Overview", "/api/v1/admin/dashboard/overview", "GET", "admin.dashboard.read"),
+                (
+                    "Newsroom health",
+                    "/api/v1/admin/dashboard/newsroom-health",
+                    "GET",
+                    "admin.dashboard.read",
+                ),
+                ("Operational gaps", "/api/v1/admin/gaps", "GET", "admin.dashboard.read"),
+            ],
+        ),
+        _route_group(
+            "intake",
+            [
+                ("Intake queue", "/api/v1/admin/intake/queue", "GET", "admin.dashboard.read"),
+                ("Create signal", "/api/v1/intake/signals", "POST", "intake.create"),
+                (
+                    "Promote signal",
+                    "/api/v1/intake/signals/{signal_id}/promote",
+                    "POST",
+                    "intake.promote",
+                ),
+            ],
+        ),
+        _route_group(
+            "workflow",
+            [
+                ("Work queue", "/api/v1/admin/editorial/work-queue", "GET", "admin.dashboard.read"),
+                (
+                    "Start workflow",
+                    "/api/v1/workflows/news/{news_id}/start",
+                    "POST",
+                    "workflow.start",
+                ),
+                (
+                    "Advance workflow",
+                    "/api/v1/workflows/{workflow_run_id}/advance",
+                    "POST",
+                    "workflow.advance",
+                ),
+            ],
+        ),
+        _route_group(
+            "tasks",
+            [
+                ("Task board", "/api/v1/admin/tasks/board", "GET", "admin.dashboard.read"),
+                ("Create task", "/api/v1/workflow-tasks", "POST", "workflow_task.create"),
+                (
+                    "Complete task",
+                    "/api/v1/workflow-tasks/{task_id}/complete",
+                    "PATCH",
+                    "workflow_task.complete",
+                ),
+            ],
+        ),
+        _route_group(
+            "readiness",
+            [
+                ("Readiness board", "/api/v1/admin/readiness/board", "GET", "admin.dashboard.read"),
+                (
+                    "Calculate readiness",
+                    "/api/v1/editorial-readiness/news/{news_id}/calculate",
+                    "POST",
+                    "readiness.calculate",
+                ),
+            ],
+        ),
+        _route_group(
+            "agent_runner",
+            [
+                (
+                    "Runner summary",
+                    "/api/v1/admin/agent-runner/summary",
+                    "GET",
+                    "agent_runner.read",
+                ),
+                ("Capabilities", "/api/v1/agent-runner/capabilities", "GET", "agent_runner.read"),
+                (
+                    "Run task",
+                    "/api/v1/agent-runner/tasks/{task_id}/run",
+                    "POST",
+                    "agent_runner.run",
+                ),
+            ],
+        ),
+        _route_group(
+            "connectors",
+            [
+                ("Connectors summary", "/api/v1/admin/connectors/summary", "GET", "connector.read"),
+                ("List connectors", "/api/v1/connectors", "GET", "connector.read"),
+                (
+                    "Dry-run connector",
+                    "/api/v1/connectors/{connector_id}/dry-run",
+                    "POST",
+                    "connector.run",
+                ),
+            ],
+        ),
+        _route_group(
+            "audit",
+            [
+                ("Audit summary", "/api/v1/admin/audit/summary", "GET", "operational_audit.read"),
+                (
+                    "Audit events",
+                    "/api/v1/operational-audit/events",
+                    "GET",
+                    "operational_audit.read",
+                ),
+            ],
+        ),
+        _route_group(
+            "ownership",
+            [
+                ("Ownership board", "/api/v1/admin/ownership/board", "GET", "admin.dashboard.read"),
+                ("Assign ownership", "/api/v1/ownership/assign", "POST", "ownership.assign"),
+            ],
+        ),
+        _route_group(
+            "users",
+            [
+                ("Create user", "/api/v1/users", "POST", "user.create"),
+                ("List users", "/api/v1/users", "GET", None),
+            ],
+        ),
+    ]
+
+
+def _route_group(
+    group: str,
+    routes: list[tuple[str, str, str, str | None]],
+) -> FrontendRouteMapGroup:
+    return FrontendRouteMapGroup(
+        group=group,
+        routes=[
+            FrontendRouteMapItem(
+                label=label,
+                path=path,
+                method=method,
+                permission=permission,
+                frontend_section=group,
+            )
+            for label, path, method, permission in routes
+        ],
+    )
