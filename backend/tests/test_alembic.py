@@ -70,3 +70,13 @@ def test_metrics_memory_knowledge_alembic_migration_exists():
     assert "memory_items" in migration_text
     assert "knowledge_nodes" in migration_text
     assert "knowledge_edges" in migration_text
+
+
+def test_editorial_readiness_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0007_add_editorial_readiness_scores.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "editorial_readiness_scores" in migration_text
+    assert "ix_editorial_readiness_scores_news_item_id" in migration_text
+    assert "ix_editorial_readiness_scores_score_band" in migration_text

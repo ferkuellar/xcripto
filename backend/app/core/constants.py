@@ -531,3 +531,36 @@ KNOWLEDGE_STATUSES = {
     "approved",
     "archived",
 }
+
+EDITORIAL_READINESS_SCORE_BANDS = {
+    "very_low",
+    "low",
+    "medium",
+    "high",
+    "ready",
+    "blocked",
+}
+EDITORIAL_READINESS_STATUSES = {
+    "not_ready",
+    "partially_ready",
+    "ready_for_review",
+    "ready_to_advance",
+    "blocked",
+    "published",
+    "archived",
+}
+EDITORIAL_READINESS_WEIGHTS = {
+    "source_score": 10,
+    "verification_score": 20,
+    "risk_score": 15,
+    "editorial_score": 10,
+    "audit_score": 15,
+    "workflow_score": 5,
+    "task_score": 5,
+    "agent_output_score": 5,
+    "distribution_score": 5,
+    "publication_score": 5,
+    "metrics_score": 2,
+    "memory_score": 2,
+    "knowledge_score": 1,
+}

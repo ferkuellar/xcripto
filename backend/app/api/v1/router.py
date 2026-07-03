@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     audit_checks,
     content_pieces,
     distribution_plans,
+    editorial_readiness,
     knowledge,
     memory_items,
     metric_snapshots,
@@ -28,6 +29,7 @@ api_router.include_router(verification_records.router)
 api_router.include_router(risk_reviews.router)
 api_router.include_router(content_pieces.router)
 api_router.include_router(distribution_plans.router)
+api_router.include_router(editorial_readiness.router)
 api_router.include_router(publication_records.router)
 api_router.include_router(workflow_tasks.router)
 api_router.include_router(metric_snapshots.router)

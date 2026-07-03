@@ -6,6 +6,7 @@ Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad
 `X-Correlation-ID`, migración Alembic inicial, máquina de estados editorial para
 `NewsItem`, autorización mínima por API key, editorial gates basados en `AuditCheck`
 y almacenamiento auditable de `AgentOutput`.
+También incluye scoring determinístico de readiness editorial por `NewsItem`.
 
 ## Stack
 
@@ -129,6 +130,7 @@ Cuando `AUTH_ENABLED=true`, estos endpoints de escritura requieren API key:
 - `PATCH /api/v1/agent-outputs/{agent_output_id}/accept`
 - `PATCH /api/v1/agent-outputs/{agent_output_id}/reject`
 - `PATCH /api/v1/agent-outputs/{agent_output_id}/supersede`
+- `POST /api/v1/editorial-readiness/news/{news_id}/calculate`
 
 Los endpoints `GET`, incluido `GET /health`, quedan públicos por ahora.
 
@@ -243,6 +245,14 @@ Respuestas esperadas con auth activa:
 - `GET /api/v1/news/{news_id}/workflow`
 - `POST /api/v1/workflows/{workflow_run_id}/recalculate`
 - `POST /api/v1/workflows/{workflow_run_id}/advance`
+
+### Editorial Readiness
+
+- `POST /api/v1/editorial-readiness/news/{news_id}/calculate`
+- `GET /api/v1/editorial-readiness/news/{news_id}/latest`
+- `GET /api/v1/editorial-readiness/news/{news_id}/explain`
+- `GET /api/v1/editorial-readiness`
+- `GET /api/v1/editorial-readiness/{score_id}`
 
 ## Agent Output Storage
 
@@ -1173,3 +1183,127 @@ La suite actual valida:
 - AgentOutput storage.
 - WorkflowTask queue.
 - MetricSnapshot, MemoryItem, KnowledgeNode y KnowledgeEdge.
+- Editorial Readiness Scoring.
+
+## Editorial Readiness Scoring
+
+Fase 9 agrega `EditorialReadinessScore`, una evaluación determinística de readiness
+editorial por noticia. El score informa operación; no aprueba publicación, no publica,
+no reemplaza revisión humana y no reemplaza `AuditCheck`.
+
+La tabla `editorial_readiness_scores` guarda:
+
+- `news_item_id` y `workflow_run_id`.
+- `score` total de 0 a 100.
+- `score_band` y `readiness_status`.
+- Scores parciales por fuente, verificación, riesgo, contenido, auditoría, workflow,
+  tareas, outputs de agente, distribución, publicación, métricas, memoria y conocimiento.
+- `blocking_reasons`, `missing_requirements`, `warnings` y `score_payload`.
+- `recommended_next_action`, `next_agent`, `human_review_required` y
+  `publication_block_recommended`.
+
+### Fórmula
+
+Pesos por componente:
+
+| Componente | Peso |
+| --- | ---: |
+| `source_score` | 10 |
+| `verification_score` | 20 |
+| `risk_score` | 15 |
+| `editorial_score` | 10 |
+| `audit_score` | 15 |
+| `workflow_score` | 5 |
+| `task_score` | 5 |
+| `agent_output_score` | 5 |
+| `distribution_score` | 5 |
+| `publication_score` | 5 |
+| `metrics_score` | 2 |
+| `memory_score` | 2 |
+| `knowledge_score` | 1 |
+
+Bandas:
+
+```text
+0-19    very_low
+20-39   low
+40-69   medium
+70-89   high
+90-100  ready
+blocked si existe bloqueo crítico
+```
+
+Estados:
+
+```text
+not_ready
+partially_ready
+ready_for_review
+ready_to_advance
+blocked
+published
+archived
+```
+
+### Bloqueos críticos
+
+El score queda `blocked` si detecta:
+
+- `VerificationRecord` `contradicted` o `rejected`.
+- `RiskReview` `critical`, `publication_block_recommended=true`,
+  `block_publication` o `reject`.
+- `AuditCheck` bloqueante, `failed` o `blocked`.
+- `ContentPiece` `blocked` o `rejected`.
+- `DistributionPlan` `blocked` o `rejected`.
+- `PublicationRecord` `retracted` o `failed`.
+- `WorkflowRun` bloqueado con razones críticas.
+- `WorkflowTask` bloqueante en `blocked` o `failed`.
+- `AgentOutput` con flags críticos pendientes de revisión.
+- `NewsItem` `rejected` o `retracted`.
+
+`AgentOutput`, `MemoryItem` y `KnowledgeEdge` son señales auxiliares. No se usan como
+fuente factual, aprobación editorial ni prueba causal automática.
+
+### Ejemplos
+
+Calcular y guardar score:
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/editorial-readiness/news/NEWS_ITEM_ID/calculate \
+  -H "X-API-Key: dev-secret"
+```
+
+Consultar último score:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/editorial-readiness/news/NEWS_ITEM_ID/latest
+```
+
+Explicar readiness sin guardar un nuevo registro:
+
+```bash
+curl http://127.0.0.1:8000/api/v1/editorial-readiness/news/NEWS_ITEM_ID/explain
+```
+
+Listar scores filtrados:
+
+```bash
+curl "http://127.0.0.1:8000/api/v1/editorial-readiness?score_band=blocked&limit=20"
+```
+
+Flujo recomendado:
+
+```text
+1. Crear NewsItem.
+2. Crear VerificationRecord.
+3. Crear RiskReview.
+4. Crear ContentPiece.
+5. Crear AuditCheck.
+6. Crear DistributionPlan.
+7. Crear PublicationRecord.
+8. Crear MetricSnapshot.
+9. Crear MemoryItem.
+10. Crear KnowledgeNode/KnowledgeEdge.
+11. POST /api/v1/editorial-readiness/news/{news_id}/calculate.
+12. GET /api/v1/editorial-readiness/news/{news_id}/latest.
+```
