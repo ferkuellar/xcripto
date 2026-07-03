@@ -10,6 +10,7 @@ from app.models.source_reference import SourceReference
 from app.models.verification_record import VerificationRecord
 from app.models.workflow_run import WorkflowRun
 from app.models.workflow_step import WorkflowStep
+from app.models.workflow_task import WorkflowTask
 
 __all__ = [
     "AgentExecution",
@@ -22,6 +23,7 @@ __all__ = [
     "RiskReview",
     "SourceReference",
     "VerificationRecord",
+    "WorkflowTask",
     "WorkflowRun",
     "WorkflowStep",
 ]

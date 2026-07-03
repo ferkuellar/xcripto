@@ -11,6 +11,7 @@ from app.api.v1.endpoints import (
     risk_reviews,
     sources,
     verification_records,
+    workflow_tasks,
     workflows,
 )
 
@@ -25,4 +26,5 @@ api_router.include_router(risk_reviews.router)
 api_router.include_router(content_pieces.router)
 api_router.include_router(distribution_plans.router)
 api_router.include_router(publication_records.router)
+api_router.include_router(workflow_tasks.router)
 api_router.include_router(workflows.router)

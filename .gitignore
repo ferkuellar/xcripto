@@ -21,3 +21,6 @@ htmlcov/
 *.db
 .idea/
 .vscode/
+docs/007-prompts/000-shared/
+docs/007-prompts/claude/
+docs/007-prompts/hermes/

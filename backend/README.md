@@ -752,3 +752,119 @@ git commit -m "chore: initialize ORION XMIP repository with backend MVP"
 - Endpoints de workflows, memoria editorial, métricas y calendario.
 - Gates más específicos por severidad, categoría, fuente y riesgo editorial.
 - Pipeline CI con tests, lint y migraciones.
+
+## Workflow Task Queue
+
+`WorkflowTask` es la cola interna de XMIP para trabajo editorial trazable. Guarda tareas,
+asignaciones, bloqueos, intentos y referencias a `WorkflowRun`, `WorkflowStep`,
+`NewsItem`, `AgentExecution` y `AgentOutput`. No ejecuta agentes, no publica y no
+reemplaza las entidades canónicas del flujo editorial.
+
+### Task types permitidos
+
+- `news_intake`
+- `source_validation`
+- `market_impact_assessment`
+- `risk_review`
+- `editorial_draft`
+- `script_generation`
+- `social_variant_generation`
+- `distribution_planning`
+- `audit_check`
+- `calendar_scheduling`
+- `metrics_review`
+- `memory_review`
+- `knowledge_update`
+- `workflow_recalculation`
+- `manual_review`
+- `publication_preparation`
+- `generic_task`
+
+### Task statuses permitidos
+
+- `queued`
+- `assigned`
+- `running`
+- `waiting_input`
+- `waiting_review`
+- `completed`
+- `completed_with_warnings`
+- `failed`
+- `blocked`
+- `cancelled`
+- `retrying`
+- `escalated`
+- `archived`
+
+### Assignees permitidos
+
+- `NewsScoutAgent`
+- `SourceValidatorAgent`
+- `RiskAgent`
+- `MarketImpactAgent`
+- `EditorialAgent`
+- `ScriptAgent`
+- `SocialClipAgent`
+- `DistributionAgent`
+- `AuditAgent`
+- `MemoryAgent`
+- `KnowledgeAgent`
+- `CalendarAgent`
+- `MetricsAgent`
+- `HumanEditor`
+- `Operator`
+- `System`
+- `None`
+
+### Endpoints
+
+- `POST /api/v1/workflow-tasks`
+- `GET /api/v1/workflow-tasks`
+- `GET /api/v1/workflow-tasks/{task_id}`
+- `GET /api/v1/workflows/{workflow_run_id}/tasks`
+- `GET /api/v1/news/{news_id}/tasks`
+- `POST /api/v1/workflows/{workflow_run_id}/tasks/bootstrap`
+- `GET /api/v1/workflows/{workflow_run_id}/tasks/summary`
+- `PATCH /api/v1/workflow-tasks/{task_id}/start`
+- `PATCH /api/v1/workflow-tasks/{task_id}/complete`
+- `PATCH /api/v1/workflow-tasks/{task_id}/fail`
+- `PATCH /api/v1/workflow-tasks/{task_id}/block`
+- `PATCH /api/v1/workflow-tasks/{task_id}/cancel`
+- `PATCH /api/v1/workflow-tasks/{task_id}/retry`
+
+### Auth
+
+When `AUTH_ENABLED=true`, write endpoints require `X-API-Key`.
+
+### Example
+
+```bash
+curl -X POST http://127.0.0.1:8000/api/v1/workflow-tasks \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{
+    "workflow_run_id": "workflow-id",
+    "news_item_id": "news-id",
+    "task_type": "source_validation",
+    "task_status": "queued",
+    "priority": "P3",
+    "assigned_agent": "SourceValidatorAgent",
+    "title": "Validate sources",
+    "description": "Validate sources before drafting.",
+    "input_payload": {"evidence": ["wire"]}
+  }'
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/workflow-tasks/TASK_ID/start \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"assigned_to":"operator"}'
+```
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/api/v1/workflow-tasks/TASK_ID/complete \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: dev-secret" \
+  -d '{"output_ref":"agent-output-id"}'
+```

@@ -34,6 +34,16 @@ def test_editorial_core_alembic_migration_exists():
     assert "publication_records" in migration_text
 
 
+def test_workflow_task_queue_alembic_migration_exists():
+    migration_path = Path("alembic/versions/20260702_0005_add_workflow_task_queue.py")
+    migration_text = migration_path.read_text(encoding="utf-8")
+
+    assert migration_path.exists()
+    assert "workflow_tasks" in migration_text
+    assert "ix_workflow_tasks_workflow_run_id" in migration_text
+    assert "ix_workflow_tasks_created_at" in migration_text
+
+
 def test_workflow_orchestration_alembic_migration_exists():
     migration_path = Path("alembic/versions/20260702_0003_add_workflow_orchestration.py")
     migration_text = migration_path.read_text(encoding="utf-8")
