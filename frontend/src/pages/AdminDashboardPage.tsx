@@ -52,16 +52,44 @@ function formatDate(value: string | null | undefined) {
   return new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
 }
 
+// Cubre los catálogos canónicos del backend (readiness, audit, task, risk,
+// dedupe, severity). No dejar valores válidos como neutral por desconocimiento.
 function toneForStatus(status: string | null | undefined): BadgeTone {
   if (!status) return 'neutral'
-  if (['ready', 'healthy', 'completed', 'published', 'unique', 'active'].includes(status)) {
+  const value = status.toLowerCase()
+  // Sano / aprobatorio
+  if (
+    [
+      'ready', 'ready_to_advance', 'healthy', 'completed', 'published', 'distributed',
+      'unique', 'active', 'trusted', 'verified', 'approved', 'passed', 'allow_to_continue',
+      'allow',
+    ].includes(value)
+  ) {
     return 'green'
   }
-  if (['blocked', 'failed', 'critical', 'retracted', 'duplicate'].includes(status)) return 'red'
-  if (['degraded', 'pending_review', 'queued', 'scheduled', 'warning'].includes(status)) {
+  // Bloqueo / fallo
+  if (
+    [
+      'blocked', 'block_publication', 'failed', 'critical', 'retracted', 'rejected',
+      'duplicate', 'exact_duplicate',
+    ].includes(value)
+  ) {
+    return 'red'
+  }
+  // Advertencia / requiere atención
+  if (
+    [
+      'degraded', 'warning', 'pending', 'pending_review', 'queued', 'scheduled',
+      'passed_with_warnings', 'completed_with_warnings', 'allow_with_warnings',
+      'needs_revision', 'partially_verified', 'rumor', 'probable_duplicate', 'medium',
+    ].includes(value)
+  ) {
     return 'yellow'
   }
-  if (['running', 'promoted', 'high'].includes(status)) return 'cyan'
+  // Severidad alta / escalado
+  if (['high', 'escalate', 'escalated'].includes(value)) return 'orange'
+  // En proceso
+  if (['running', 'promoted', 'validating', 'drafting', 'reviewing'].includes(value)) return 'cyan'
   return 'neutral'
 }
 

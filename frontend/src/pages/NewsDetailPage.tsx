@@ -60,6 +60,16 @@ const riskLevelVariant: Record<string, BadgeVariant> = {
   unknown: 'neutral',
 }
 
+// Catálogo canónico AUDIT_STATUSES del backend.
+const auditStatusVariant: Record<string, BadgeVariant> = {
+  passed: 'green',
+  passed_with_warnings: 'yellow',
+  warning: 'yellow',
+  pending: 'blue',
+  failed: 'red',
+  blocked: 'red',
+}
+
 function formatDate(value: string | null | undefined) {
   if (!value) return '—'
   return new Date(value).toLocaleString('es-MX', { dateStyle: 'medium', timeStyle: 'short' })
@@ -539,17 +549,7 @@ function AuditSection({ newsId }: { newsId: string }) {
       {(data ?? []).map((check) => (
         <div key={check.id} className="mt-3 rounded-lg border border-line/50 bg-surface p-3">
           <div className="flex flex-wrap items-center gap-1.5">
-            <Badge
-              variant={
-                check.audit_status === 'pass'
-                  ? 'green'
-                  : check.audit_status === 'fail'
-                    ? 'red'
-                    : check.audit_status === 'warning'
-                      ? 'yellow'
-                      : 'blue'
-              }
-            >
+            <Badge variant={auditStatusVariant[check.audit_status] ?? 'neutral'}>
               {check.audit_status}
             </Badge>
             <Badge variant={riskLevelVariant[check.severity] ?? 'neutral'}>{check.severity}</Badge>

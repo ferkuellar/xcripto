@@ -90,7 +90,10 @@ export default function CommandCenter() {
     ['failed', 'blocked_by_policy'].includes(e.status),
   )
   const blockingAudits = (audits.data ?? []).filter(
-    (a) => a.publication_block_recommended || a.audit_status === 'fail',
+    (a) =>
+      a.publication_block_recommended ||
+      a.audit_status === 'failed' ||
+      a.audit_status === 'blocked',
   )
 
   return (

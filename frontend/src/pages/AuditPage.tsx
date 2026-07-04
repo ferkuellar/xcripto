@@ -8,10 +8,12 @@ import type { AuditCheckRead } from '@/lib/api-types'
 type BadgeVariant = NonNullable<BadgeProps['variant']>
 
 const auditStatusMap: Record<AuditCheckRead['audit_status'], BadgeVariant> = {
-  pass: 'green',
+  passed: 'green',
+  passed_with_warnings: 'yellow',
   warning: 'yellow',
-  fail: 'red',
   pending: 'blue',
+  failed: 'red',
+  blocked: 'red',
 }
 
 const severityMap: Record<AuditCheckRead['severity'], BadgeVariant> = {

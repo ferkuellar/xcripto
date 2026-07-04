@@ -97,9 +97,16 @@ export interface AuditCheckRead {
   id: string
   entity_type: string
   entity_id: string
-  audit_status: 'pass' | 'fail' | 'warning' | 'pending'
+  // Catálogo canónico del backend (AUDIT_STATUSES). Los valores legacy
+  // 'pass'/'fail' fueron retirados: el backend los rechaza con 422.
+  audit_status: 'passed' | 'passed_with_warnings' | 'failed' | 'warning' | 'pending' | 'blocked'
   severity: 'low' | 'medium' | 'high' | 'critical'
-  decision_recommendation: string | null
+  decision_recommendation:
+    | 'allow_to_continue'
+    | 'allow_with_warnings'
+    | 'needs_revision'
+    | 'block_publication'
+    | null
   ready_to_advance: boolean
   publication_block_recommended: boolean
   missing_requirements: string[]
