@@ -66,6 +66,18 @@ Docker Compose levanta PostgreSQL 16 y la API en `http://localhost:8000`.
 Para entornos persistentes, usa `AUTO_CREATE_TABLES=false` y aplica migraciones Alembic.
 El servicio API ejecuta `alembic upgrade head` antes de iniciar Uvicorn.
 
+Los puertos del host son configurables (útil si `:8000`/`:5432` ya están ocupados):
+
+```bash
+API_PORT=8010 POSTGRES_PORT=55432 docker compose up --build
+```
+
+Para una corrida production-like con auth, copia `.env.local.production.example` a `.env`
+(gitignored) y añade `AUTH_ENABLED=true`, `API_KEY=dev-secret` y
+`DATABASE_URL=postgresql+asyncpg://xmip:xmip@postgres:5432/xmip`. Ver
+`docs/LOCAL_DOCKER_POSTGRES_E2E_REPORT.md` para el flujo E2E validado (Alembic, smoke tests,
+newsroom QA y persistencia).
+
 ## Migraciones Alembic
 
 La migración inicial crea:
