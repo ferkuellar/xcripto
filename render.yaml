@@ -1,0 +1,59 @@
+# XMIP staging blueprint for Render (Infrastructure as Code).
+# Provisions the FastAPI backend (Docker) + PostgreSQL 16.
+#
+# Secrets are NEVER in git: API_KEY, DATABASE_URL and CORS_ALLOWED_ORIGINS are
+# marked `sync: false` and must be set in the Render dashboard.
+#
+# IMPORTANT — DATABASE_URL scheme: XMIP uses SQLAlchemy async and requires the
+# `postgresql+asyncpg://...` scheme. Render's connection string is
+# `postgresql://...`; when you paste it into DATABASE_URL, replace the prefix
+# `postgresql://` with `postgresql+asyncpg://` (keep `?sslmode=require` off — asyncpg
+# uses `?ssl=require` if needed; internal Render URLs work without it).
+
+databases:
+  - name: xmip-staging-db
+    postgresMajorVersion: "16"
+    plan: free # free Postgres expires ~30 days; bump to a paid plan for a durable staging
+
+services:
+  - type: web
+    name: xmip-staging-api
+    runtime: docker
+    branch: release/staging-deployment # point the Blueprint at this branch (or main after merge)
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    plan: free # free web services sleep on inactivity; bump to starter for always-on
+    healthCheckPath: /ready
+    # Render injects $PORT; run migrations first, then bind $PORT (Dockerfile CMD fixes 8000).
+    dockerCommand: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port ${PORT:-8000}"
+    envVars:
+      - key: ENVIRONMENT
+        value: staging
+      - key: DEBUG
+        value: "false"
+      - key: LOG_LEVEL
+        value: INFO
+      - key: APP_VERSION
+        value: 0.1.0-rc1
+      - key: AUTO_CREATE_TABLES
+        value: "false"
+      - key: AUTH_ENABLED
+        value: "true"
+      - key: API_KEY_HEADER_NAME
+        value: X-API-Key
+      - key: API_KEY # set in dashboard (staging secret)
+        sync: false
+      - key: DATABASE_URL # set in dashboard: postgresql+asyncpg://... (see note above)
+        sync: false
+      - key: CORS_ALLOWED_ORIGINS # set in dashboard to the Vercel frontend URL, then redeploy
+        sync: false
+      - key: CORS_ALLOW_CREDENTIALS
+        value: "false"
+      - key: CORS_ALLOWED_METHODS
+        value: GET,POST,PATCH,DELETE,OPTIONS
+      - key: CORS_ALLOWED_HEADERS
+        value: Content-Type,X-API-Key,X-Actor-Role,X-Actor-Id,X-Correlation-ID
+      - key: OPERATIONAL_AUDIT_ENABLED
+        value: "true"
+      - key: DB_HEALTHCHECK_ENABLED
+        value: "true"
