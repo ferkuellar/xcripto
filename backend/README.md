@@ -2,6 +2,11 @@
 
 Backend API de la plataforma multiagente **XMIP** (newsroom de **XCripto**, bajo gobierno **ORION**).
 
+> **Release candidate local actual: `v0.1.0-rc1`** — ver
+> `docs/RELEASE_NOTES_v0.1.0-rc1.md` y `docs/LOCAL_RC_v0.1.0-rc1_REPORT.md`.
+> Correr tests: `pytest` (sin un `.env` con `AUTH_ENABLED=true`, que rompería el suite).
+> Correr Docker/PostgreSQL: `API_PORT=8010 POSTGRES_PORT=55432 docker compose up --build`.
+
 Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad por
 `X-Correlation-ID`, migración Alembic inicial, máquina de estados editorial para
 `NewsItem`, autorización mínima por API key, editorial gates basados en `AuditCheck`
