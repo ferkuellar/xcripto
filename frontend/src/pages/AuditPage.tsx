@@ -1,20 +1,10 @@
 import { SectionHeader } from '@/components/ui/section-header'
-import { Badge, type BadgeProps } from '@/components/ui/badge'
+import { Badge } from '@/components/ui/badge'
 import { DemoTag, EmptyState, ErrorState, SkeletonRows } from '@/components/ui/async-state'
 import { PipelineAlerts } from '@/components/newsroom/RiskMonitor'
 import { useApiQuery } from '@/hooks/useApi'
 import type { AuditCheckRead } from '@/lib/api-types'
-
-type BadgeVariant = NonNullable<BadgeProps['variant']>
-
-const auditStatusMap: Record<AuditCheckRead['audit_status'], BadgeVariant> = {
-  passed: 'green',
-  passed_with_warnings: 'yellow',
-  warning: 'yellow',
-  pending: 'blue',
-  failed: 'red',
-  blocked: 'red',
-}
+import { type BadgeVariant, auditStatusVariant } from '@/lib/audit-status'
 
 const severityMap: Record<AuditCheckRead['severity'], BadgeVariant> = {
   low: 'green',
@@ -54,7 +44,7 @@ export default function AuditPage() {
             data?.map((check) => (
               <div key={check.id} className="card-surface p-3">
                 <div className="flex flex-wrap items-center gap-2">
-                  <Badge variant={auditStatusMap[check.audit_status] ?? 'neutral'}>
+                  <Badge variant={auditStatusVariant[check.audit_status] ?? 'neutral'}>
                     {check.audit_status}
                   </Badge>
                   <Badge variant={severityMap[check.severity] ?? 'neutral'}>

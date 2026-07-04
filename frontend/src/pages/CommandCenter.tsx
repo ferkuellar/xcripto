@@ -27,6 +27,7 @@ import type {
   IntakeSignalRead,
   NewsRead,
 } from '@/lib/api-types'
+import { countBlockingAudits } from '@/lib/audit-status'
 import { cn } from '@/lib/utils'
 
 function LiveKpi({
@@ -89,12 +90,7 @@ export default function CommandCenter() {
   const failedRuns = (executions.data ?? []).filter((e) =>
     ['failed', 'blocked_by_policy'].includes(e.status),
   )
-  const blockingAudits = (audits.data ?? []).filter(
-    (a) =>
-      a.publication_block_recommended ||
-      a.audit_status === 'failed' ||
-      a.audit_status === 'blocked',
-  )
+  const blockingAuditCount = countBlockingAudits(audits.data ?? [])
 
   return (
     <div className="space-y-8">
@@ -145,9 +141,9 @@ export default function CommandCenter() {
           <LiveKpi
             icon={ShieldAlert}
             label="Audit · bloqueos activos"
-            value={blockingAudits.length}
+            value={blockingAuditCount}
             detail={`${(audits.data ?? []).length} checks registrados`}
-            tone={blockingAudits.length > 0 ? 'text-accent-red' : 'text-accent-green'}
+            tone={blockingAuditCount > 0 ? 'text-accent-red' : 'text-accent-green'}
             loading={audits.loading}
           />
         </div>
