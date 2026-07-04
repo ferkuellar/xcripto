@@ -25,6 +25,7 @@ import {
   type RiskReviewRead,
   type VerificationRecordRead,
 } from '@/lib/api-types'
+import { auditStatusVariant } from '@/lib/audit-status'
 
 type BadgeVariant = NonNullable<BadgeProps['variant']>
 
@@ -58,16 +59,6 @@ const riskLevelVariant: Record<string, BadgeVariant> = {
   medium: 'yellow',
   low: 'green',
   unknown: 'neutral',
-}
-
-// Catálogo canónico AUDIT_STATUSES del backend.
-const auditStatusVariant: Record<string, BadgeVariant> = {
-  passed: 'green',
-  passed_with_warnings: 'yellow',
-  warning: 'yellow',
-  pending: 'blue',
-  failed: 'red',
-  blocked: 'red',
 }
 
 function formatDate(value: string | null | undefined) {
