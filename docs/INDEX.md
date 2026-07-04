@@ -52,11 +52,13 @@ Definición operativa:
 │   ├── 005-producto/
 │   ├── 006-operaciones/
 │   ├── 007-prompts/
-│   ├── 008-decisiones/
-│   └── 009-sprints/
+│   ├── 008-decisiones/   ← no existe en el working tree actual
+│   └── 009-sprints/      ← no existe en el working tree actual
 ├── frontend/
 └── newsroom/
 ```
+
+> ⚠️ **Nota (2026-07-02):** `apps/` y `newsroom/` existen pero están vacías, y `docs/008-decisiones/` y `docs/009-sprints/` fueron removidas del working tree sin commit. Las cuatro rutas están en estado: candidate for archive/delete pending reference cleanup.
 
 ---
 
@@ -362,6 +364,8 @@ Contendrá ADRs y decisiones arquitectónicas, editoriales, técnicas y operativ
 | ------- | ------------------- | ------------------------------------------------------ | ------ |
 | ADR-001 | Documentation First | `docs/008-decisiones/ADR-001-Documentation-First.md` | Draft  |
 
+> ⚠️ **Nota (2026-07-02):** la carpeta `docs/008-decisiones/` no existe en el working tree actual (fue removida sin commit). Estado: candidate for archive/delete pending reference cleanup. Requiere decisión: restaurar ADR-001 o retirar estas referencias.
+
 ---
 
 ## 14.3 ADRs recomendados
@@ -393,6 +397,8 @@ Cada sprint debe derivarse de documentos aprobados y producir entregables verifi
 | Código    | Documento  | Ruta                               | Estado |
 | ---------- | ---------- | ---------------------------------- | ------ |
 | Sprint-001 | Sprint 001 | `docs/009-sprints/Sprint-001.md` | Draft  |
+
+> ⚠️ **Nota (2026-07-02):** la carpeta `docs/009-sprints/` no existe en el working tree actual (fue removida sin commit). Estado: candidate for archive/delete pending reference cleanup. Requiere decisión: restaurar Sprint-001 o retirar estas referencias.
 
 ---
 

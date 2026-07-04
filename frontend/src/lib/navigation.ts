@@ -6,9 +6,11 @@ import {
   Brain,
   CalendarDays,
   Clapperboard,
+  Gauge,
   FileText,
   LayoutDashboard,
   Network,
+  Newspaper,
   Radar,
   ScrollText,
   Send,
@@ -20,6 +22,8 @@ import {
 
 export const navItems = [
   { label: 'Command Center', path: '/', icon: LayoutDashboard },
+  { label: 'Admin API', path: '/admin', icon: Gauge },
+  { label: 'News Feed', path: '/news', icon: Newspaper },
   { label: 'News Intake', path: '/intake', icon: Radar },
   { label: 'Source Validation', path: '/sources', icon: ShieldCheck },
   { label: 'Market Impact', path: '/impact', icon: TrendingUp },

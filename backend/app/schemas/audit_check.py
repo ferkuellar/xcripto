@@ -2,7 +2,11 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
-from app.core.constants import AUDIT_SEVERITIES, AUDIT_STATUSES
+from app.core.constants import (
+    AUDIT_DECISION_RECOMMENDATIONS,
+    AUDIT_SEVERITIES,
+    AUDIT_STATUSES,
+)
 
 
 class AuditCheckBase(BaseModel):
@@ -21,7 +25,22 @@ class AuditCheckBase(BaseModel):
     @classmethod
     def validate_audit_status(cls, value: str) -> str:
         if value not in AUDIT_STATUSES:
-            raise ValueError(f"audit_status must be one of {sorted(AUDIT_STATUSES)}")
+            raise ValueError(
+                f"audit_status must be one of {sorted(AUDIT_STATUSES)}. "
+                "Legacy values like 'pass'/'fail' are rejected: use 'passed'/'failed' "
+                "so the editorial gates recognize the check."
+            )
+        return value
+
+    @field_validator("decision_recommendation")
+    @classmethod
+    def validate_decision_recommendation(cls, value: str | None) -> str | None:
+        if value is not None and value not in AUDIT_DECISION_RECOMMENDATIONS:
+            raise ValueError(
+                "decision_recommendation must be one of "
+                f"{sorted(AUDIT_DECISION_RECOMMENDATIONS)}. Free text is rejected: "
+                "the editorial gates only recognize catalog values."
+            )
         return value
 
     @field_validator("severity")

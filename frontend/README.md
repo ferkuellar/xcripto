@@ -4,8 +4,91 @@ Frontend del **Newsroom OS** de XCripto: una plataforma interna para detectar no
 validar fuentes, revisar riesgos, producir contenido, calendarizar publicaciones y
 operar agentes editoriales con trazabilidad completa.
 
-> Todos los datos de esta versión son **mock data ficticia de demostración**.
-> No hay backend, autenticación ni llamadas a APIs externas.
+## Integración con backend
+
+El frontend consume el **backend XMIP real** (FastAPI, `/api/v1`) para los módulos
+operativos principales; los widgets sin endpoint disponible muestran datos de
+demostración claramente etiquetados con un badge `DEMO`.
+
+| Módulo               | Fuente de datos                                             |
+| -------------------- | ----------------------------------------------------------- |
+| Command Center KPIs  | ✅ Real — news, intake signals, executions, audit checks    |
+| Últimas noticias     | ✅ Real — `GET /api/v1/news`                                |
+| News Intake          | ✅ Real — signals + promote / reject / dedupe / alta manual |
+| Source Validation    | ✅ Real — `GET/POST /api/v1/sources`                        |
+| Agents               | ✅ Real — `GET /api/v1/agents/executions` por agente        |
+| Audit                | ✅ Real — `GET /api/v1/audit/checks`                        |
+| Estado del backend   | ✅ Real — `GET /health` con poll cada 30 s (Topbar)         |
+| Pipeline board, risk queues, calendario, métricas, notificaciones | ⚠️ DEMO — pendientes de endpoint |
+
+Capa de integración: `src/lib/api.ts` (cliente), `src/lib/api-types.ts` (contratos),
+`src/hooks/useApi.ts` (loading/error/refetch + health). Estados async en
+`src/components/ui/async-state.tsx`. Mock data aislada en `src/data/mock-*.ts`
+con advertencia en el encabezado.
+
+### Variables de entorno
+
+Copia `.env.example` a `.env.local`:
+
+| Variable            | Default                  | Descripción                                                   |
+| ------------------- | ------------------------ | ------------------------------------------------------------- |
+| `VITE_API_BASE_URL` | `http://127.0.0.1:8000`  | Base del backend XMIP, sin slash final                        |
+| `VITE_API_KEY`      | *(vacío)*                | API key de desarrollo/admin interno cuando `AUTH_ENABLED=true` |
+| `VITE_ACTOR_ROLE`   | `admin`                  | Rol RBAC enviado como `X-Actor-Role`                          |
+| `VITE_ACTOR_ID`     | `local-admin`            | Actor opcional enviado como `X-Actor-Id`                      |
+
+Si el backend está apagado, la UI lo indica ("XMIP sin conexión" en el topbar) y
+cada módulo muestra un estado de error con reintento — no pantallas rotas.
+
+## Frontend/Admin Integration
+
+La ruta `#/admin` conecta el panel operativo al contrato de backend de Fase 17.
+Usa un cliente separado en `src/lib/xmipAdminApi.ts` para enviar:
+
+- `X-API-Key` desde `VITE_API_KEY`
+- `X-Actor-Role` desde `VITE_ACTOR_ROLE`
+- `X-Actor-Id` desde `VITE_ACTOR_ID`
+- `X-Correlation-ID` generado por request
+
+`VITE_API_KEY` solo es aceptable para desarrollo local o una consola admin interna.
+Un frontend público de producción no debe exponer API keys; una fase futura debe
+introducir login real con JWT/OAuth/SSO o un backend-for-frontend.
+
+### Endpoints admin consumidos
+
+| UI | Endpoint |
+| --- | --- |
+| Readiness banner | `GET /ready` |
+| Frontend config | `GET /api/v1/admin/frontend/config` |
+| Route map | `GET /api/v1/admin/frontend/route-map` |
+| Overview cards | `GET /api/v1/admin/dashboard/overview` |
+| Newsroom health | `GET /api/v1/admin/dashboard/newsroom-health` |
+| Intake queue | `GET /api/v1/admin/intake/queue` |
+| Editorial work queue | `GET /api/v1/admin/editorial/work-queue` |
+| Blockers | `GET /api/v1/admin/blockers` |
+| Readiness board | `GET /api/v1/admin/readiness/board` |
+| Task board | `GET /api/v1/admin/tasks/board` |
+| Publication board | `GET /api/v1/admin/publications/board` |
+| Ownership board | `GET /api/v1/admin/ownership/board` |
+| Operational gaps | `GET /api/v1/admin/gaps` |
+| Agent runner summary | `GET /api/v1/admin/agent-runner/summary` |
+| Connectors summary | `GET /api/v1/admin/connectors/summary` |
+| Audit summary | `GET /api/v1/admin/audit/summary` |
+
+### Probar contra backend local
+
+```bash
+cd backend
+uvicorn app.main:app --host 127.0.0.1 --port 8000
+```
+
+```bash
+cd frontend
+cp .env.example .env.local
+npm run dev
+```
+
+Abre `http://localhost:5173/#/admin`.
 
 ## Stack
 

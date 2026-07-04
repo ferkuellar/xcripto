@@ -136,3 +136,141 @@ async def test_update_news_status_rejects_unknown_status(client):
     )
 
     assert response.status_code == 422
+
+
+# --- List filters and total count (GET /api/v1/news) ---
+
+SECOND_PAYLOAD = {
+    "title": "SEC opens consultation on custody rules",
+    "summary": "The regulator opened a public consultation window.",
+    "category": "regulation",
+    "priority": "P0",
+    "source_url": "https://sec.gov/consultation",
+    "source_name": "SEC Newsroom",
+}
+
+
+async def _seed_two_items(client):
+    first = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+    second = (await client.post("/api/v1/news/intake", json=SECOND_PAYLOAD)).json()
+    return first, second
+
+
+async def test_list_news_without_filters_returns_total_header(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news")
+
+    assert response.status_code == 200
+    assert len(response.json()) == 2
+    assert response.headers["X-Total-Count"] == "2"
+
+
+async def test_list_news_filter_by_category(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"category": "regulation"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["category"] == "regulation"
+    assert response.headers["X-Total-Count"] == "1"
+
+
+async def test_list_news_filter_by_priority(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"priority": "P0"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["priority"] == "P0"
+
+
+async def test_list_news_rejects_invalid_priority_filter(client):
+    response = await client.get("/api/v1/news", params={"priority": "P9"})
+
+    assert response.status_code == 400
+
+
+async def test_list_news_filter_by_source_case_insensitive(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"source": "sec"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["source_name"] == "SEC Newsroom"
+
+
+async def test_list_news_search_q_matches_title_case_insensitive(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"q": "consultation"})
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert "consultation" in body[0]["title"].lower()
+
+
+async def test_list_news_search_q_matches_summary(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"q": "institutional inflows"})
+
+    assert response.status_code == 200
+    assert len(response.json()) == 1
+
+
+async def test_list_news_q_escapes_like_wildcards(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"q": "%"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert response.headers["X-Total-Count"] == "0"
+
+
+async def test_list_news_combined_filters(client):
+    await _seed_two_items(client)
+
+    response = await client.get(
+        "/api/v1/news",
+        params={"q": "SEC", "category": "regulation", "priority": "P0", "status": "detected"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body) == 1
+    assert body[0]["title"] == SECOND_PAYLOAD["title"]
+    assert response.headers["X-Total-Count"] == "1"
+
+
+async def test_list_news_limit_offset_with_total(client):
+    await _seed_two_items(client)
+
+    page_one = await client.get("/api/v1/news", params={"limit": 1, "offset": 0})
+    page_two = await client.get("/api/v1/news", params={"limit": 1, "offset": 1})
+
+    assert page_one.status_code == 200
+    assert page_two.status_code == 200
+    assert len(page_one.json()) == 1
+    assert len(page_two.json()) == 1
+    assert page_one.headers["X-Total-Count"] == "2"
+    assert page_two.headers["X-Total-Count"] == "2"
+    assert page_one.json()[0]["id"] != page_two.json()[0]["id"]
+
+
+async def test_list_news_no_results_returns_empty_and_zero_total(client):
+    await _seed_two_items(client)
+
+    response = await client.get("/api/v1/news", params={"q": "nonexistent-term-xyz"})
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert response.headers["X-Total-Count"] == "0"

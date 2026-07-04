@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import AGENT_EXECUTION_STATUSES
 from app.core.errors import DomainValidationError
+from app.core.security import require_api_key
 from app.db.session import get_session
 from app.schemas.agent_execution import AgentExecutionCreate, AgentExecutionRead
 from app.services import agent_execution_service
@@ -13,7 +14,12 @@ router = APIRouter(prefix="/agents/executions", tags=["agent-executions"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("", response_model=AgentExecutionRead, status_code=201)
+@router.post(
+    "",
+    response_model=AgentExecutionRead,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
 async def create_execution(
     payload: AgentExecutionCreate,
     request: Request,

@@ -5,6 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import SOURCE_STATUSES
 from app.core.errors import DomainValidationError
+from app.core.security import require_api_key
 from app.db.session import get_session
 from app.schemas.source import SourceCreate, SourceRead
 from app.services import source_service
@@ -13,7 +14,12 @@ router = APIRouter(prefix="/sources", tags=["sources"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
 
 
-@router.post("", response_model=SourceRead, status_code=201)
+@router.post(
+    "",
+    response_model=SourceRead,
+    status_code=201,
+    dependencies=[Depends(require_api_key)],
+)
 async def create_source(
     payload: SourceCreate,
     request: Request,

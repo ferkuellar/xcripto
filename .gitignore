@@ -7,9 +7,11 @@ __pycache__/
 .env
 .env.*
 !.env.example
+!.env.local.production.example
 *.pyc
 *.pyo
 *.pyd
+*.egg-info/
 .DS_Store
 Thumbs.db
 node_modules/
