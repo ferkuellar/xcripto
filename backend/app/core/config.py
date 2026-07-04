@@ -1,14 +1,19 @@
 import json
+import os
 from functools import lru_cache
 from typing import Literal
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# Tests set XMIP_DISABLE_DOTENV=1 so a local backend/.env (used for docker/VPS runs)
+# never leaks into the suite. Production/dev behaviour is unchanged: env_file=".env".
+_ENV_FILE = None if os.environ.get("XMIP_DISABLE_DOTENV") == "1" else ".env"
+
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=_ENV_FILE,
         env_file_encoding="utf-8",
         extra="ignore",
         populate_by_name=True,

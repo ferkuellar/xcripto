@@ -1,6 +1,9 @@
 import os
 
-# Test environment must be set before app modules build the engine at import time.
+# Ignore any local backend/.env (used for docker/VPS runs) so the suite is hermetic:
+# a production-like .env (AUTH_ENABLED=true, custom CORS, Postgres URL) must not leak
+# into tests. Must be set before app modules build settings/engine at import time.
+os.environ["XMIP_DISABLE_DOTENV"] = "1"
 os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTO_CREATE_TABLES"] = "false"
