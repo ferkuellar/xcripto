@@ -1,0 +1,17 @@
+# XMIP VPS edge — automatic HTTPS (Let's Encrypt) + reverse proxy.
+# Domains come from .env.vps (APP_DOMAIN / API_DOMAIN / ACME_EMAIL) and must
+# have DNS A records pointing to the VPS before the first request.
+
+{
+	email {$ACME_EMAIL}
+}
+
+# Backend API
+{$API_DOMAIN} {
+	reverse_proxy api:8000
+}
+
+# Admin SPA (static, served by the frontend nginx container)
+{$APP_DOMAIN} {
+	reverse_proxy frontend:80
+}

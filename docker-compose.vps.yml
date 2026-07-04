@@ -1,0 +1,80 @@
+# XMIP full-stack VPS deployment: Caddy (TLS) + frontend (nginx) + api + postgres.
+#
+# On the VPS:
+#   cp .env.vps.example .env.vps        # fill real domains + secrets (never commit)
+#   docker compose -f docker-compose.vps.yml --env-file .env.vps up -d --build
+#
+# Only Caddy is exposed (80/443); api and postgres stay on the internal network.
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-xmip}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env.vps}
+      POSTGRES_DB: ${POSTGRES_DB:-xmip}
+    volumes:
+      - xmip_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-xmip} -d ${POSTGRES_DB:-xmip}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  api:
+    build:
+      context: ./backend
+    command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    environment:
+      ENVIRONMENT: staging
+      DEBUG: "false"
+      APP_VERSION: 0.1.0-rc1
+      AUTO_CREATE_TABLES: "false"
+      AUTH_ENABLED: "true"
+      API_KEY: ${API_KEY:?set API_KEY in .env.vps}
+      API_KEY_HEADER_NAME: X-API-Key
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xmip}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-xmip}
+      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN}
+      CORS_ALLOW_CREDENTIALS: "false"
+      CORS_ALLOWED_METHODS: GET,POST,PATCH,DELETE,OPTIONS
+      CORS_ALLOWED_HEADERS: Content-Type,X-API-Key,X-Actor-Role,X-Actor-Id,X-Correlation-ID
+      OPERATIONAL_AUDIT_ENABLED: "true"
+      DB_HEALTHCHECK_ENABLED: "true"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: https://${API_DOMAIN}
+        VITE_API_KEY: ${VITE_API_KEY:?set VITE_API_KEY in .env.vps}
+        VITE_ACTOR_ROLE: admin
+        VITE_ACTOR_ID: vps-admin
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      API_DOMAIN: ${API_DOMAIN}
+      APP_DOMAIN: ${APP_DOMAIN}
+      ACME_EMAIL: ${ACME_EMAIL}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - api
+      - frontend
+    restart: unless-stopped
+
+volumes:
+  xmip_pgdata:
+  caddy_data:
+  caddy_config:
