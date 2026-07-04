@@ -10,6 +10,14 @@ def requires_passing_audit_check(status: str) -> bool:
     return status in PROTECTED_NEWS_STATUSES
 
 
+def requires_source_quality_gate(status: str) -> bool:
+    """Los estados protegidos también exigen calidad de fuente suficiente.
+
+    Ver ``app.core.source_quality`` y ``docs/SOURCE_QUALITY_POLICY.md``.
+    """
+    return status in PROTECTED_NEWS_STATUSES
+
+
 def is_passing_audit_check(check: AuditCheck | None) -> bool:
     if check is None:
         return False

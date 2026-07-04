@@ -4,8 +4,8 @@
 | --- | --- |
 | Proyecto | ORION / XCripto / XMIP |
 | Tipo | Política editorial operativa |
-| Estado | Draft implementable (Hard Phase P0) |
-| Última actualización | 2026-07-03 |
+| Estado | Enforced (backend) — ver §6 |
+| Última actualización | 2026-07-04 |
 | Documentos relacionados | `PROFESSIONAL_NEWSROOM_QA.md`, `docs/006-operaciones/ORION-021-Gestion-de-Fuentes.md`, `docs/007-prompts/000-shared/editorial-guardrails.md` |
 
 ---
@@ -88,3 +88,42 @@ las señales que dependan solo de ella se rechazan o quedan en monitoreo.
 ```
 
 En caso de duda entre dos niveles, asignar el MÁS BAJO (fail closed).
+
+---
+
+## 6. Enforcement en el sistema
+
+La política se implementa en `app/core/source_quality.py` (módulo puro, S1-S5) y
+se aplica en dos puntos, ambos con cobertura de regresión en
+`tests/test_source_quality.py`:
+
+**a) Gate de publicación** (`news_service.update_news_status`, estados protegidos
+`approved / scheduled / published`). Se resuelve la `SourceReference` que sostiene
+la noticia (por `source_url` o `source_name`) y se bloquea la transición con `409`
+cuando:
+
+```text
+- La fuente está en source_status blocked/restricted  → bloqueo incondicional.
+- La fuente es S5 (rumor/opaca)                        → nunca como hecho.
+- La fuente es S3 o S4 sin verificación fuerte         → exige confirmación
+  independiente (verified, sin contradicciones, con evidencia E3+ o ≥2 fuentes).
+- La fuente es S1 o S2                                 → puede sostener publicación.
+```
+
+Verificación fuerte = `VerificationRecord` más reciente en estado `verified`, sin
+`contradictions`, con `evidence_level` E3+ **o** dos o más `source_refs`
+(corroboración independiente: una fuente débil nunca es confirmación única, §3).
+
+**b) Readiness editorial** (`editorial_readiness_service`). El componente `source`
+puntúa por nivel (S1=10, S2=9, S3=7, S4=3, S5/descalificada=0), expone
+`source_level` / `trust_level` / `source_status` en `score_payload.components.source`
+y marca `publication_block_recommended` cuando la fuente es S5 o está
+blocked/restricted. El componente `verification` degrada a revisión humana cuando
+hay `contradictions` (conflicto entre fuentes).
+
+**Limitación conocida:** la calidad solo se gradúa cuando existe una
+`SourceReference` registrada. Una noticia con solo campos denormalizados
+(`source_url`/`source_name`, sin fila en `source_references`) no se bloquea por este
+gate — sigue gobernada por el gate de `AuditCheck`. La predicción de precios y el
+"rumor como hecho" a nivel de contenido se cubren aparte vía los `risk_flags`
+sensibles (`price_prediction_risk`, `rumor_as_fact`) en el scoring de `AgentOutput`.

@@ -10,6 +10,11 @@ from app.core.constants import (
 )
 from app.core.editorial_gates import is_passing_audit_check
 from app.core.errors import NotFoundError
+from app.core.source_quality import (
+    is_disqualified,
+    readiness_score_for_source,
+    source_level_for,
+)
 from app.models import (
     AgentOutput,
     AuditCheck,
@@ -23,11 +28,11 @@ from app.models import (
     NewsItem,
     PublicationRecord,
     RiskReview,
-    SourceReference,
     VerificationRecord,
     WorkflowRun,
     WorkflowTask,
 )
+from app.services import source_service
 
 
 @dataclass
@@ -214,22 +219,44 @@ async def list_readiness_scores(
 
 
 async def _source_score(session: AsyncSession, news: NewsItem) -> ComponentResult:
-    result = await session.execute(
-        select(SourceReference)
-        .where(
-            or_(
-                SourceReference.source_url == news.source_url,
-                SourceReference.source_name == news.source_name,
+    source = await source_service.get_source_for_news_item(session, news)
+    if source is None:
+        if news.source_url or news.source_name:
+            return ComponentResult(
+                5,
+                details={"signal": "news_item_source_fields", "source_level": "unrated"},
+                warnings=["Source not registered as SourceReference; quality unrated"],
             )
+        return ComponentResult(0, missing=["SourceReference"], details={"signal": "missing_source"})
+
+    level = source_level_for(source)
+    disqualified = is_disqualified(source)
+    details = {
+        "source_reference_id": source.id,
+        "signal": "source_reference",
+        "source_level": level,
+        "trust_level": source.trust_level,
+        "source_status": source.source_status,
+    }
+    blocks: list[str] = []
+    warnings: list[str] = []
+    if disqualified:
+        blocks.append(
+            f"Source is {source.source_status}; cannot sustain publication (SOURCE_QUALITY_POLICY)"
         )
-        .limit(1)
+    elif level == "S5":
+        blocks.append("Source level S5 (rumor/opaque) cannot be published as fact")
+    elif level == "S4":
+        warnings.append("Source level S4 (unconfirmed social) requires strong verification")
+    elif level == "S3":
+        warnings.append("Source level S3 requires additional independent confirmation")
+    return ComponentResult(
+        readiness_score_for_source(source),
+        details=details,
+        blocks=blocks,
+        warnings=warnings,
+        publication_block_recommended=bool(blocks),
     )
-    source = result.scalar_one_or_none()
-    if source:
-        return ComponentResult(10, {"source_reference_id": source.id, "signal": "source_reference"})
-    if news.source_url or news.source_name:
-        return ComponentResult(5, {"signal": "news_item_source_fields"})
-    return ComponentResult(0, missing=["SourceReference"], details={"signal": "missing_source"})
 
 
 async def _verification_score(session: AsyncSession, news_item_id: str) -> ComponentResult:
@@ -248,14 +275,24 @@ async def _verification_score(session: AsyncSession, news_item_id: str) -> Compo
             blocks=[f"VerificationRecord status is {record.verification_status}"],
             details={"verification_record_id": record.id, "status": record.verification_status},
         )
-    warnings = (
-        ["VerificationRecord status is rumor"] if record.verification_status == "rumor" else []
-    )
+    warnings = []
+    human_review_required = record.human_review_required
+    if record.verification_status == "rumor":
+        warnings.append("VerificationRecord status is rumor")
+    # Conflicto entre fuentes (doc SOURCE_QUALITY_POLICY): las contradicciones
+    # exigen revisión humana antes de tratar la señal como hecho.
+    if record.contradictions:
+        warnings.append("VerificationRecord reports source conflicts (contradictions)")
+        human_review_required = True
     return ComponentResult(
         status_scores.get(record.verification_status, 0),
         warnings=warnings,
-        human_review_required=record.human_review_required,
-        details={"verification_record_id": record.id, "status": record.verification_status},
+        human_review_required=human_review_required,
+        details={
+            "verification_record_id": record.id,
+            "status": record.verification_status,
+            "contradictions": len(record.contradictions or []),
+        },
     )
 
 

@@ -1,8 +1,8 @@
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.errors import NotFoundError
-from app.models import SourceReference
+from app.models import NewsItem, SourceReference
 from app.schemas.source import SourceCreate
 
 
@@ -41,3 +41,24 @@ async def get_source(session: AsyncSession, source_id: str) -> SourceReference:
     if source is None:
         raise NotFoundError("Source")
     return source
+
+
+async def get_source_for_news_item(
+    session: AsyncSession, news: NewsItem
+) -> SourceReference | None:
+    """Resuelve la SourceReference que sostiene una noticia por URL o nombre.
+
+    Fuente única de verdad para el scoring de readiness y el gate de calidad de
+    fuente; devuelve ``None`` cuando la noticia solo tiene campos denormalizados.
+    """
+    result = await session.execute(
+        select(SourceReference)
+        .where(
+            or_(
+                SourceReference.source_url == news.source_url,
+                SourceReference.source_name == news.source_name,
+            )
+        )
+        .limit(1)
+    )
+    return result.scalar_one_or_none()

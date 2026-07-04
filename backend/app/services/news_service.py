@@ -3,11 +3,20 @@ from datetime import datetime
 from sqlalchemy import Select, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.editorial_gates import is_passing_audit_check, requires_passing_audit_check
+from app.core.editorial_gates import (
+    is_passing_audit_check,
+    requires_passing_audit_check,
+    requires_source_quality_gate,
+)
 from app.core.errors import ConflictError, DomainValidationError, NotFoundError
+from app.core.source_quality import (
+    evaluate_publication_source_gate,
+    is_strong_verification,
+)
 from app.core.state_machine import is_valid_news_status_transition
-from app.models import NewsItem
+from app.models import NewsItem, VerificationRecord
 from app.schemas.news import NewsCreate
+from app.services import source_service
 from app.services.audit_check_service import get_latest_news_item_audit_check
 
 
@@ -141,7 +150,30 @@ async def update_news_status(session: AsyncSession, news_id: str, status: str) -
                 f"NewsItem cannot transition to {status} without a passing AuditCheck"
             )
 
+    if requires_source_quality_gate(status):
+        source = await source_service.get_source_for_news_item(session, item)
+        verification = await _latest_verification_record(session, item.id)
+        source_blocks = evaluate_publication_source_gate(
+            source, verification_strong=is_strong_verification(verification)
+        )
+        if source_blocks:
+            raise ConflictError(
+                f"NewsItem cannot transition to {status}: {source_blocks[0]}"
+            )
+
     item.status = status
     await session.commit()
     await session.refresh(item)
     return item
+
+
+async def _latest_verification_record(
+    session: AsyncSession, news_item_id: str
+) -> VerificationRecord | None:
+    result = await session.execute(
+        select(VerificationRecord)
+        .where(VerificationRecord.news_item_id == news_item_id)
+        .order_by(VerificationRecord.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
