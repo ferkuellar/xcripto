@@ -690,6 +690,7 @@ OPERATIONAL_AUDIT_EVENT_TYPES = {
     "user_event",
     "ownership_event",
     "admin_event",
+    "connector_event",
     "system_event",
 }
 OPERATIONAL_AUDIT_OUTCOMES = {

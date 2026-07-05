@@ -49,9 +49,28 @@ class Settings(BaseSettings):
     operational_audit_enabled: bool = True
     db_healthcheck_enabled: bool = True
 
+    # --- Real connectors (P9). Disabled by default; kill switches. ---
+    connectors_enabled: bool = False
+    rss_connector_enabled: bool = False
+    rss_connector_max_items: int = 20
+    rss_connector_timeout_seconds: int = 10
+    rss_connector_user_agent: str = "XMIP-StagingBot/0.1"
+    rss_connector_allowed_domains: str = ""  # CSV; empty = reject everything
+    connector_run_mode: str = "manual"
+    connector_audit_enabled: bool = True
+    connector_require_source_reference: bool = True
+    connector_auto_promote: bool = False  # MUST stay false in P9
+
     @property
     def is_production(self) -> bool:
         return self.environment in {"production", "prod"}
+
+    @property
+    def rss_allowed_domains(self) -> list[str]:
+        return [
+            d.lower().removeprefix("www.")
+            for d in _split_csv(self.rss_connector_allowed_domains)
+        ]
 
     @property
     def cors_origins(self) -> list[str]:
@@ -71,6 +90,8 @@ class Settings(BaseSettings):
             raise ValueError(
                 "CORS wildcard is not allowed in production when AUTH_ENABLED=true"
             )
+        if self.connector_auto_promote:
+            raise ValueError("CONNECTOR_AUTO_PROMOTE must remain false in P9")
         return self
 
 

@@ -33,6 +33,17 @@ REQUEST_LOGGING_ENABLED=true
 REQUEST_BODY_LOGGING_ENABLED=false
 RESPONSE_BODY_LOGGING_ENABLED=false
 OPERATIONAL_AUDIT_ENABLED=true
+
+# Conectores reales (P9). OFF por defecto; kill switches. Nunca publican; el ingest crea
+# IntakeSignals. CONNECTOR_AUTO_PROMOTE debe quedar en false en staging.
+CONNECTORS_ENABLED=false
+RSS_CONNECTOR_ENABLED=false
+RSS_CONNECTOR_MAX_ITEMS=20
+RSS_CONNECTOR_TIMEOUT_SECONDS=10
+RSS_CONNECTOR_ALLOWED_DOMAINS=coindesk.com,cointelegraph.com,decrypt.co,theblock.co
+CONNECTOR_AUDIT_ENABLED=true
+CONNECTOR_REQUIRE_SOURCE_REFERENCE=true
+CONNECTOR_AUTO_PROMOTE=false
 ```
 
 ## Frontend (Vite) — build-time del proveedor de frontend
