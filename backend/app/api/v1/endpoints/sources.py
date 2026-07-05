@@ -6,12 +6,20 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.constants import SOURCE_STATUSES
 from app.core.errors import DomainValidationError
 from app.core.security import require_api_key
+from app.core.source_quality import (
+    PRIMARY_OR_TRUSTED_LEVELS,
+    is_disqualified,
+    source_level_for,
+)
 from app.db.session import get_session
 from app.schemas.source import SourceCreate, SourceRead
-from app.services import source_service
+from app.services import operational_audit_service, source_service
 
 router = APIRouter(prefix="/sources", tags=["sources"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
+
+# Niveles que exigen verificación independiente fuerte para publicar (gate S3/S4).
+_REQUIRES_STRONG_VERIFICATION_LEVELS = {"S3", "S4"}
 
 
 @router.post(
@@ -26,6 +34,34 @@ async def create_source(
     session: SessionDep,
 ) -> SourceRead:
     source = await source_service.create_source(session, payload, request.state.correlation_id)
+    # Evaluate + audit the source quality at registration (deterministic from the
+    # registered source; folds the "quality evaluated" record into the register event).
+    disqualified = is_disqualified(source)
+    level = source_level_for(source)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="source_event",
+        action="source.register",
+        decision="created",
+        entity_type="SourceReference",
+        entity_id=source.id,
+        metadata={
+            "source_reference_id": source.id,
+            "source_name": source.source_name,
+            "source_url": operational_audit_service.redact_url(source.source_url),
+            "trust_level": source.trust_level,
+            "source_status": source.source_status,
+            "quality_level": level,
+            "disqualified": disqualified,
+            "allowed_for_fact_publication": (
+                level in PRIMARY_OR_TRUSTED_LEVELS and not disqualified
+            ),
+            "requires_strong_verification": (
+                level in _REQUIRES_STRONG_VERIFICATION_LEVELS and not disqualified
+            ),
+        },
+    )
     return SourceRead.model_validate(source)
 
 

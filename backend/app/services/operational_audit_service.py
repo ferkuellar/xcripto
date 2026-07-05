@@ -1,4 +1,5 @@
 from typing import Any
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import Request
 from sqlalchemy import Select, func, select
@@ -11,6 +12,21 @@ from app.schemas.operational_audit import (
     OperationalAuditLogCreate,
     OperationalAuditLogRead,
 )
+
+
+def redact_url(url: str | None) -> str | None:
+    """Drop query string and fragment from a URL before auditing it.
+
+    Source URLs are not secrets, but query params/fragments can carry tokens; we
+    keep only scheme + host + path so the audit trail never persists them.
+    """
+    if not url:
+        return url
+    try:
+        parts = urlsplit(url)
+    except ValueError:
+        return None
+    return urlunsplit((parts.scheme, parts.netloc, parts.path, "", ""))
 
 
 async def create_audit_event(

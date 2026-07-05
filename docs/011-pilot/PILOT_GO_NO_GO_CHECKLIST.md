@@ -19,10 +19,11 @@ Entorno: local production-like (Docker + PostgreSQL 16 + auth). Base: main `6c95
 - [x] Contradicciones entre fuentes elevan a revisión humana (C10).
 
 ## Auditability
-- [x] `OperationalAuditLog` registra audit checks, readiness e intake (13 eventos).
+- [x] `OperationalAuditLog` registra audit checks, readiness e intake.
 - [x] `actor_role` y `correlation_id` presentes; sin secretos en la salida.
-- [ ] ⚠️ Transiciones de estado de `NewsItem` y registro de `SourceReference` **no** se
-      registran aún en el audit log (gap documentado — ampliar antes de producción).
+- [x] Transiciones de estado de `NewsItem` (incl. bloqueos por gate) y registro de
+      `SourceReference` con evaluación de calidad **auditados** (P8.1 —
+      `OPERATIONAL_AUDIT_COVERAGE_REPORT.md`; pilot 15/15, news_event=64 + source_event=9).
 
 ## Admin Visibility
 - [x] `admin_contract_smoke` passed (11 endpoints admin en 200).
@@ -49,8 +50,8 @@ Entorno: local production-like (Docker + PostgreSQL 16 + auth). Base: main `6c95
 
 ## Production Readiness
 - [x] Núcleo editorial fail-closed validado end-to-end.
+- [x] Cobertura de OperationalAuditLog ampliada (P8.1: transiciones + fuentes).
 - [ ] Desplegar en VPS y repetir pilot remoto.
-- [ ] Ampliar cobertura de OperationalAuditLog.
 - [ ] Implementar auth real (P10).
 
 ## Veredicto

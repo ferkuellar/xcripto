@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import NEWS_PRIORITIES, NEWS_STATUSES
-from app.core.errors import DomainValidationError
+from app.core.errors import ConflictError, DomainValidationError
 from app.core.security import require_api_key
 from app.db.session import get_session
 from app.schemas.news import NewsCreate, NewsRead, NewsStatusUpdate
-from app.services import news_service
+from app.services import news_service, operational_audit_service
 
 router = APIRouter(prefix="/news", tags=["news"])
 SessionDep = Annotated[AsyncSession, Depends(get_session)]
@@ -96,7 +96,50 @@ async def get_news(news_id: str, session: SessionDep) -> NewsRead:
 async def update_news_status(
     news_id: str,
     payload: NewsStatusUpdate,
+    request: Request,
     session: SessionDep,
 ) -> NewsRead:
-    item = await news_service.update_news_status(session, news_id, payload.status)
+    # Capture the pre-transition status as an immutable string (the loaded item is
+    # mutated in place by the service on success, so read it before the transition).
+    current = await news_service.get_news_item(session, news_id)
+    previous_status = current.status
+    try:
+        item = await news_service.update_news_status(session, news_id, payload.status)
+    except (ConflictError, DomainValidationError) as exc:
+        # Audit the blocked/invalid transition, then re-raise so the gate still fails.
+        blocked_by_gate = isinstance(exc, ConflictError)
+        await operational_audit_service.record_operational_event(
+            session,
+            request,
+            event_type="news_event",
+            action="news.status.transition",
+            decision="blocked" if blocked_by_gate else "deny",
+            outcome="blocked" if blocked_by_gate else "failed",
+            entity_type="NewsItem",
+            entity_id=news_id,
+            news_item_id=news_id,
+            reason=str(exc),
+            before_state={"status": previous_status},
+            after_state={"status": payload.status},
+            metadata={
+                "previous_status": previous_status,
+                "attempted_status": payload.status,
+                "blocked_by_gate": blocked_by_gate,
+            },
+        )
+        raise
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="news_event",
+        action="news.status.transition",
+        decision="updated",
+        outcome="succeeded",
+        entity_type="NewsItem",
+        entity_id=item.id,
+        news_item_id=item.id,
+        before_state={"status": previous_status},
+        after_state={"status": item.status},
+        metadata={"previous_status": previous_status, "new_status": item.status},
+    )
     return NewsRead.model_validate(item)
