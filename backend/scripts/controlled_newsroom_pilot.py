@@ -328,6 +328,20 @@ def main() -> int:
            "dedupe_status in {exact_duplicate, probable_duplicate}",
            f"dedupe_status={dedupe}", ok)
 
+    # --- Operational audit coverage (P8.1): transitions + source registration ---
+    _, trans = c._req(
+        "GET", "/api/v1/operational-audit/events?action=news.status.transition&limit=200"
+    )
+    n_trans = len(trans) if isinstance(trans, list) else -1
+    record("C14 audit log covers NewsItem status transitions",
+           "news.status.transition events >= 8", f"count={n_trans}", n_trans >= 8)
+    _, srcs = c._req(
+        "GET", "/api/v1/operational-audit/events?action=source.register&limit=200"
+    )
+    n_srcs = len(srcs) if isinstance(srcs, list) else -1
+    record("C15 audit log covers SourceReference registration",
+           "source.register events >= 8", f"count={n_srcs}", n_srcs >= 8)
+
     # --- Summary ---
     total = len(RESULTS)
     passed = sum(1 for r in RESULTS if r["ok"])

@@ -70,11 +70,11 @@ en la sesión de arranque local.
 eventos incluyen `actor_role` y `correlation_id`; **sin secretos** en la salida.
 
 ## 12. Bugs encontrados
-Ninguno funcional. **Hallazgo (gap, no bug):** el `OperationalAuditLog` registra la
+Ninguno funcional. **Hallazgo (gap, no bug):** el `OperationalAuditLog` registraba la
 creación de audit checks, los cálculos de readiness y la promoción de intake, pero **no**
-las transiciones de estado de `NewsItem` ni el registro de `SourceReference`. La
-trazabilidad de las decisiones de gate de publicación se apoya hoy en el
-`EditorialReadinessScore` persistido y en los `ConflictError`, no en el audit log.
+las transiciones de estado de `NewsItem` ni el registro de `SourceReference`.
+**→ CERRADO en P8.1** (`OPERATIONAL_AUDIT_COVERAGE_REPORT.md`): ahora se auditan las
+transiciones (incl. bloqueos por gate) y el registro de fuentes con evaluación de calidad.
 
 ## 13. Bugs corregidos
 N/A (no se encontraron bugs). Solo se ajustó el estilo del script nuevo (líneas ≤100).
