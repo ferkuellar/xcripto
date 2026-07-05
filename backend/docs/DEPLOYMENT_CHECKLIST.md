@@ -16,10 +16,14 @@
 - `REQUEST_LOGGING_ENABLED=true`
 - `REQUEST_BODY_LOGGING_ENABLED=false`
 - `RESPONSE_BODY_LOGGING_ENABLED=false`
+- `REQUEST_TIMEOUT_SECONDS=30`
 - `OPERATIONAL_AUDIT_ENABLED=true`
 - `DB_HEALTHCHECK_ENABLED=true`
 
-Do not use wildcard CORS origins in production when `AUTH_ENABLED=true`.
+`ENVIRONMENT=production`, `prod` and `staging` are treated as deployed
+environments. They must use PostgreSQL, `AUTH_ENABLED=true`, a non-placeholder
+`API_KEY`, explicit CORS origins, `AUTO_CREATE_TABLES=false`, and `DEBUG=false`.
+`APP_ENV` is accepted as an alias for providers that reserve `ENVIRONMENT`.
 
 ## PostgreSQL
 
@@ -60,7 +64,8 @@ curl http://127.0.0.1:8000/ready
 ```
 
 `/live` does not depend on the database. `/ready` checks database connectivity when
-`DB_HEALTHCHECK_ENABLED=true` and returns HTTP 503 if the backend is not ready.
+`DB_HEALTHCHECK_ENABLED=true`, validates critical deployed-environment configuration,
+and returns HTTP 503 if the backend is not ready.
 
 ## CORS
 
@@ -70,6 +75,14 @@ Verify the admin/frontend origin is present in `CORS_ALLOWED_ORIGINS`.
 curl -i -X OPTIONS http://127.0.0.1:8000/health \
   -H "Origin: http://localhost:5173" \
   -H "Access-Control-Request-Method: GET"
+```
+
+Confirm exposed headers for frontend pagination and tracing:
+
+```bash
+curl -i -X OPTIONS http://127.0.0.1:8000/health \
+  -H "Origin: http://localhost:5173" \
+  -H "Access-Control-Request-Method: GET" | grep -i access-control-expose-headers
 ```
 
 ## Auth and RBAC
@@ -140,6 +153,19 @@ Before enabling connector contracts in an environment:
 ```bash
 cd backend
 python scripts/smoke_test.py --base-url http://127.0.0.1:8000
+```
+
+Manual smoke equivalents:
+
+```bash
+curl -i http://127.0.0.1:8000/health
+curl -i http://127.0.0.1:8000/live
+curl -i http://127.0.0.1:8000/ready
+curl -i "http://127.0.0.1:8000/api/v1/news?limit=10&offset=0"
+curl -i "http://127.0.0.1:8000/api/v1/operational-audit/events?limit=10&offset=0" \
+  -H "X-API-Key: dev-secret" \
+  -H "X-Actor-Role: admin"
+curl -i http://127.0.0.1:8000/openapi.json
 ```
 
 Optional write smoke:

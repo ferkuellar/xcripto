@@ -78,9 +78,17 @@ async def live() -> dict[str, str]:
 
 @app.get("/ready", tags=["health"])
 async def ready() -> JSONResponse:
-    checks = {"configuration": "ok"}
     status = "ready"
     status_code = 200
+    checks: dict[str, str | list[str]] = {}
+    configuration_errors = settings.critical_configuration_errors()
+    if configuration_errors:
+        checks["configuration"] = "failed"
+        checks["configuration_errors"] = configuration_errors
+        status = "not_ready"
+        status_code = 503
+    else:
+        checks["configuration"] = "ok"
     if settings.db_healthcheck_enabled:
         try:
             await db_health.check_database_health()

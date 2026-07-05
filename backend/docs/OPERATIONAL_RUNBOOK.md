@@ -30,7 +30,9 @@ curl http://127.0.0.1:8000/ready
 
 - `/health`: basic service response.
 - `/live`: process liveness, no database dependency.
-- `/ready`: configuration and database readiness.
+- `/ready`: critical configuration and database readiness. Deployed environments
+  (`staging`, `production`, `prod`) fail readiness if auth, CORS, database, debug, or
+  migration settings are unsafe.
 
 ## Common Problems
 
@@ -40,6 +42,14 @@ curl http://127.0.0.1:8000/ready
 - Verify PostgreSQL is reachable.
 - Run `alembic current`.
 - Check `/ready`; a DB failure returns HTTP 503.
+
+### Configuration Not Ready
+
+- Use `ENVIRONMENT=staging` or `ENVIRONMENT=production` only with PostgreSQL.
+- `APP_ENV` is accepted as an alias if the deploy provider reserves `ENVIRONMENT`.
+- Confirm `AUTH_ENABLED=true`, `API_KEY` is set and not `dev-secret`.
+- Confirm `AUTO_CREATE_TABLES=false`, `DEBUG=false`, and CORS has no wildcard.
+- `CONNECTOR_AUTO_PROMOTE=true` is invalid and prevents startup.
 
 ### CORS Blocked
 
@@ -79,6 +89,9 @@ curl http://127.0.0.1:8000/api/v1/operational-audit/events \
   -H "X-API-Key: dev-secret" \
   -H "X-Actor-Role: admin"
 ```
+
+There is no `/api/v1/operations/audit-log` route in this backend; use
+`/api/v1/operational-audit/events`.
 
 Query by correlation:
 
