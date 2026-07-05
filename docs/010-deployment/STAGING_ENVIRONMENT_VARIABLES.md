@@ -9,6 +9,7 @@
 APP_NAME=XMIP Backend
 APP_VERSION=0.1.0-rc1
 ENVIRONMENT=staging
+# APP_ENV=staging is also accepted if the provider reserves ENVIRONMENT.
 DEBUG=false
 LOG_LEVEL=INFO
 
@@ -32,6 +33,7 @@ CORS_ALLOWED_HEADERS=Content-Type,X-API-Key,X-Actor-Role,X-Actor-Id,X-Correlatio
 REQUEST_LOGGING_ENABLED=true
 REQUEST_BODY_LOGGING_ENABLED=false
 RESPONSE_BODY_LOGGING_ENABLED=false
+REQUEST_TIMEOUT_SECONDS=30
 OPERATIONAL_AUDIT_ENABLED=true
 
 # Conectores reales (P9). OFF por defecto; kill switches. Nunca publican; el ingest crea
@@ -56,6 +58,9 @@ VITE_ACTOR_ID=staging-admin
 ```
 
 ## Notas de seguridad
+- `staging`, `production` y `prod` fallan configuración si usan SQLite, CORS wildcard,
+  `AUTH_ENABLED=false`, `API_KEY` vacío o placeholders como `dev-secret`.
+- `AUTO_CREATE_TABLES` debe quedar en `false`; migraciones siempre por Alembic.
 - **`VITE_API_KEY` se incrusta en el bundle y es público** para cualquiera que acceda
   al SPA. No es una solución productiva. Para **staging interno** es temporalmente
   aceptable **si** el frontend está tras acceso restringido (protección por contraseña

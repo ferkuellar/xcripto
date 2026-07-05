@@ -23,8 +23,11 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     service_name: str = "xmip-backend"
     version: str = "0.1.0"
-    environment: Literal["development", "local", "dev", "staging", "production", "prod", "test"] = (
-        "development"
+    environment: Literal[
+        "development", "local", "dev", "staging", "production", "prod", "test"
+    ] = Field(
+        default="development",
+        validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"),
     )
     debug: bool = False
     database_url: str = "sqlite+aiosqlite:///./xmip.db"
@@ -46,6 +49,10 @@ class Settings(BaseSettings):
     request_logging_enabled: bool = True
     request_body_logging_enabled: bool = False
     response_body_logging_enabled: bool = False
+    request_timeout_seconds: int = Field(
+        default=30,
+        validation_alias=AliasChoices("REQUEST_TIMEOUT_SECONDS", "REQUEST_TIMEOUT"),
+    )
     operational_audit_enabled: bool = True
     db_healthcheck_enabled: bool = True
 
@@ -64,6 +71,10 @@ class Settings(BaseSettings):
     @property
     def is_production(self) -> bool:
         return self.environment in {"production", "prod"}
+
+    @property
+    def is_deployed_environment(self) -> bool:
+        return self.environment in {"staging", "production", "prod"}
 
     @property
     def rss_allowed_domains(self) -> list[str]:
@@ -86,13 +97,31 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
-        if self.is_production and self.auth_enabled and "*" in self.cors_origins:
-            raise ValueError(
-                "CORS wildcard is not allowed in production when AUTH_ENABLED=true"
-            )
         if self.connector_auto_promote:
             raise ValueError("CONNECTOR_AUTO_PROMOTE must remain false in P9")
+        errors = self.critical_configuration_errors()
+        if errors:
+            raise ValueError("; ".join(errors))
         return self
+
+    def critical_configuration_errors(self) -> list[str]:
+        errors: list[str] = []
+        if self.is_deployed_environment:
+            if self.debug:
+                errors.append("DEBUG must be false in deployed environments")
+            if self.auto_create_tables:
+                errors.append("AUTO_CREATE_TABLES must be false in deployed environments")
+            if not self.auth_enabled:
+                errors.append("AUTH_ENABLED must be true in deployed environments")
+            if not self.api_key:
+                errors.append("API_KEY is required in deployed environments")
+            elif self.api_key in {"dev-secret", "changeme", "change-me", "secret"}:
+                errors.append("API_KEY must not use a development placeholder")
+            if "*" in self.cors_origins:
+                errors.append("CORS wildcard is not allowed in deployed environments")
+            if self.database_url.startswith("sqlite"):
+                errors.append("DATABASE_URL must use PostgreSQL in deployed environments")
+        return errors
 
 
 def _split_csv(value: str | list[str]) -> list[str]:
