@@ -3,12 +3,18 @@
  *
  * Configuración por entorno:
  *   VITE_API_BASE_URL  — base del backend (default: http://127.0.0.1:8000)
- *   VITE_API_KEY       — opcional; se envía como X-API-Key cuando el backend
- *                        corre con AUTH_ENABLED=true (solo endpoints de escritura)
+ *   VITE_API_KEY       — opcional; se envía como X-API-Key en endpoints de
+ *                        escritura cuando el backend corre con AUTH_ENABLED=true
+ *   VITE_ACTOR_ROLE    — opcional; se envía como X-Actor-Role en escrituras. El
+ *                        RBAC del backend lo exige para operaciones permisionadas
+ *                        (p. ej. intake.promote, readiness.calculate).
+ *   VITE_ACTOR_ID      — opcional; se envía como X-Actor-Id en escrituras.
  */
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
 const API_KEY: string | undefined = import.meta.env.VITE_API_KEY || undefined
+const ACTOR_ROLE: string | undefined = import.meta.env.VITE_ACTOR_ROLE || undefined
+const ACTOR_ID: string | undefined = import.meta.env.VITE_ACTOR_ID || undefined
 const DEFAULT_TIMEOUT_MS = 12_000
 
 export class ApiError extends Error {
@@ -48,7 +54,15 @@ async function requestWithMeta<T>(path: string, options: RequestOptions = {}): P
 
   const headers: Record<string, string> = {}
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (API_KEY && options.method && options.method !== 'GET') headers['X-API-Key'] = API_KEY
+  // Credenciales solo en escritura: el RBAC del backend exige X-API-Key +
+  // X-Actor-Role (y X-Actor-Id) para operaciones permisionadas como
+  // intake.promote o readiness.calculate. Los GET públicos no los necesitan.
+  const isWrite = options.method !== undefined && options.method !== 'GET'
+  if (isWrite) {
+    if (API_KEY) headers['X-API-Key'] = API_KEY
+    if (ACTOR_ROLE) headers['X-Actor-Role'] = ACTOR_ROLE
+    if (ACTOR_ID) headers['X-Actor-Id'] = ACTOR_ID
+  }
 
   let response: Response
   try {
@@ -70,8 +84,10 @@ async function requestWithMeta<T>(path: string, options: RequestOptions = {}): P
 
   if (!response.ok) {
     // El backend responde { success: false, error, correlation_id } en errores.
+    // El correlation id llega tanto en el body como en el header X-Correlation-ID;
+    // usamos el header como fallback para respuestas no-JSON (500 crudo, proxy).
     let message = `HTTP ${response.status}`
-    let correlationId: string | null = null
+    let correlationId: string | null = response.headers.get('X-Correlation-ID')
     try {
       const payload = (await response.json()) as {
         error?: string
@@ -79,9 +95,9 @@ async function requestWithMeta<T>(path: string, options: RequestOptions = {}): P
         correlation_id?: string
       }
       message = payload.error ?? payload.detail ?? message
-      correlationId = payload.correlation_id ?? null
+      correlationId = payload.correlation_id ?? correlationId
     } catch {
-      /* cuerpo no-JSON: conservar mensaje HTTP */
+      /* cuerpo no-JSON: conservar mensaje HTTP y correlation id del header */
     }
     throw new ApiError(message, response.status, correlationId)
   }

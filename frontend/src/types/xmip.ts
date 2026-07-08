@@ -218,3 +218,27 @@ export interface AuditSummary {
   events_by_decision: Record<string, number>
   recent_events: unknown[]
 }
+
+/**
+ * Evento del registro de auditoría operacional
+ * (`GET /api/v1/operational-audit/events`, protegido por RBAC).
+ * Distinto de un Audit Check editorial (`/api/v1/audit/checks`): esto registra
+ * quién hizo qué en el backend (actor, outcome, decisión) para trazabilidad.
+ * Campos opcionales por tolerancia a variaciones menores del read model.
+ */
+export interface OperationalAuditEvent {
+  id: string
+  event_type: string
+  action: string | null
+  permission: string | null
+  outcome: string
+  decision: string | null
+  actor_id: string | null
+  actor_role: string | null
+  entity_type: string | null
+  entity_id: string | null
+  reason: string | null
+  error_message: string | null
+  correlation_id: string | null
+  created_at: string
+}
