@@ -131,7 +131,7 @@ Copia `.env.example` a `.env`. Variables principales:
 | `APP_VERSION`        | `0.1.0`                         | Versión operativa expuesta en healthchecks                                                |
 | `DATABASE_URL`       | `sqlite+aiosqlite:///./xmip.db` | URL async de SQLAlchemy. Para PostgreSQL:`postgresql+asyncpg://user:pass@host:5432/xmip` |
 | `AUTO_CREATE_TABLES` | `false`                         | Debe quedar `false` en staging/prod; usa Alembic para crear esquema                       |
-| `ENVIRONMENT`        | `development`                   | `development` / `staging` / `production` / `test`                                        |
+| `ENVIRONMENT`        | `development`                   | `development` / `staging` / `production` / `test`; `APP_ENV` también se acepta como alias |
 | `DEBUG`              | `false`                         | Evita exponer internals en producción                                                     |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Orígenes frontend/admin permitidos                                          |
 | `CORS_ALLOW_CREDENTIALS` | `false`                    | Credenciales CORS                                                                         |
@@ -144,14 +144,19 @@ Copia `.env.example` a `.env`. Variables principales:
 | `REQUEST_LOGGING_ENABLED` | `true`                    | Activa logs estructurados por request                                                       |
 | `REQUEST_BODY_LOGGING_ENABLED` | `false`             | Mantener `false` salvo diagnóstico controlado                                              |
 | `RESPONSE_BODY_LOGGING_ENABLED` | `false`            | Mantener `false` salvo diagnóstico controlado                                              |
+| `REQUEST_TIMEOUT_SECONDS` | `30`                    | Timeout operativo global para clientes/scripts que lo adopten                              |
 | `OPERATIONAL_AUDIT_ENABLED` | `true`                | Habilita bitácora operacional                                                              |
 | `DB_HEALTHCHECK_ENABLED` | `true`                    | `/ready` valida DB con `SELECT 1`                                                          |
 
-En `ENVIRONMENT=production` con `AUTH_ENABLED=true`, `CORS_ALLOWED_ORIGINS=*` se
-rechaza como configuración insegura. Configura explícitamente el origen del
-frontend/admin, por ejemplo:
+En `ENVIRONMENT=staging`, `production` o `prod`, la configuración falla si usa SQLite,
+`AUTH_ENABLED=false`, `API_KEY` vacío o placeholder, `AUTO_CREATE_TABLES=true`,
+`DEBUG=true` o `CORS_ALLOWED_ORIGINS=*`. Configura explícitamente el origen del
+frontend/admin y usa PostgreSQL:
 
 ```env
+DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/xmip
+AUTH_ENABLED=true
+API_KEY=<secret-from-secret-manager>
 CORS_ALLOWED_ORIGINS=https://admin.xcripto.example
 ```
 

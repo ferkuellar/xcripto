@@ -58,6 +58,20 @@ async def test_ready_skips_database_when_disabled(client, monkeypatch):
     assert response.json()["checks"]["database"] == "skipped"
 
 
+async def test_ready_returns_503_when_configuration_is_invalid(client, monkeypatch):
+    monkeypatch.setattr(app_settings, "environment", "staging")
+    monkeypatch.setattr(app_settings, "auth_enabled", False)
+
+    response = await client.get("/ready")
+
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+    assert response.json()["checks"]["configuration"] == "failed"
+    assert "AUTH_ENABLED must be true" in " ".join(
+        response.json()["checks"]["configuration_errors"]
+    )
+
+
 async def test_health_still_returns_ok(client):
     response = await client.get("/health")
 
@@ -98,14 +112,23 @@ def test_cors_wildcard_blocked_in_production_when_auth_enabled():
         )
 
 
-def test_cors_wildcard_allowed_outside_auth_production():
+def test_cors_wildcard_allowed_in_development():
     settings = Settings(
-        environment="production",
+        environment="development",
         auth_enabled=False,
         cors_allowed_origins="*",
     )
 
     assert settings.cors_origins == ["*"]
+
+
+def test_cors_wildcard_blocked_in_staging_even_without_auth():
+    with pytest.raises(ValidationError):
+        Settings(
+            environment="staging",
+            auth_enabled=False,
+            cors_allowed_origins="*",
+        )
 
 
 def test_cors_json_list_backwards_compatible():
@@ -124,13 +147,52 @@ def test_cors_methods_and_headers_parse_from_csv():
     assert settings.cors_headers == ["Content-Type", "X-Correlation-ID"]
 
 
-def test_settings_defaults_are_production_safe():
-    settings = Settings(environment="production")
+def test_settings_defaults_are_development_safe():
+    settings = Settings()
 
     assert settings.debug is False
     assert settings.auto_create_tables is False
     assert settings.request_body_logging_enabled is False
     assert settings.response_body_logging_enabled is False
+
+
+def test_app_env_alias_is_supported_for_deployed_environment():
+    settings = Settings(
+        APP_ENV="staging",
+        auth_enabled=True,
+        api_key="staging-secret",
+        database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+        cors_allowed_origins="https://admin-staging.example.com",
+    )
+
+    assert settings.environment == "staging"
+
+
+def test_deployed_environment_requires_api_key_and_postgres():
+    with pytest.raises(ValidationError) as exc:
+        Settings(environment="production")
+
+    message = str(exc.value)
+    assert "AUTH_ENABLED must be true" in message
+    assert "API_KEY is required" in message
+    assert "DATABASE_URL must use PostgreSQL" in message
+
+
+def test_deployed_environment_rejects_dev_secret():
+    with pytest.raises(ValidationError, match="development placeholder"):
+        Settings(
+            environment="staging",
+            auth_enabled=True,
+            api_key="dev-secret",
+            database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+            cors_allowed_origins="https://admin-staging.example.com",
+        )
+
+
+def test_request_timeout_setting_accepts_legacy_alias():
+    settings = Settings(REQUEST_TIMEOUT=45)
+
+    assert settings.request_timeout_seconds == 45
 
 
 def test_default_cors_origins_include_local_development_frontends():
