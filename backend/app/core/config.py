@@ -46,6 +46,10 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     api_key: str | None = None
     api_key_header_name: str = "X-API-Key"
+    public_site_url: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("APP_DOMAIN", "PUBLIC_SITE_URL"),
+    )
     request_logging_enabled: bool = True
     request_body_logging_enabled: bool = False
     response_body_logging_enabled: bool = False
