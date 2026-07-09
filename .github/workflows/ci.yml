@@ -36,16 +36,12 @@ jobs:
     # Tests run against an in-memory SQLite DB configured in tests/conftest.py, so no
     # PostgreSQL service container is required here. The Docker smoke job below exercises
     # the real PostgreSQL + api stack.
-    env:
-      ENVIRONMENT: test
-      APP_ENV: test
-      DEBUG: "false"
-      AUTH_ENABLED: "false"
-      API_KEY: test-ci-key
-      CONNECTORS_ENABLED: "false"
-      RSS_CONNECTOR_ENABLED: "false"
-      CONNECTOR_AUTO_PROMOTE: "false"
-
+    #
+    # NOTE: do NOT inject app config env vars (ENVIRONMENT/AUTH_ENABLED/API_KEY/...) at the
+    # job level. pydantic BaseSettings reads them from os.environ and they would leak into
+    # the suite, breaking config-hardening tests (e.g. test_production_hardening). The suite
+    # controls its own environment via tests/conftest.py. Only XMIP_DISABLE_DOTENV (set at
+    # the workflow level) is required, and it merely disables reading a local .env file.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
