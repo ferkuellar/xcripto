@@ -17,6 +17,7 @@ from app.api.v1.endpoints import (
     news,
     operational_audit,
     ownership,
+    public_news,
     publication_records,
     risk_reviews,
     sources,
@@ -43,6 +44,7 @@ api_router.include_router(distribution_plans.router)
 api_router.include_router(editorial_readiness.router)
 api_router.include_router(intake.router)
 api_router.include_router(publication_records.router)
+api_router.include_router(public_news.router)
 api_router.include_router(workflow_tasks.router)
 api_router.include_router(metric_snapshots.router)
 api_router.include_router(memory_items.router)

@@ -7,6 +7,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from app.api.public import router as public_router
 from app.api.v1.router import api_router
 from app.core.config import get_settings
 from app.core.errors import (
@@ -56,6 +57,7 @@ app.add_exception_handler(RequestValidationError, validation_exception_handler)
 app.add_exception_handler(Exception, unhandled_exception_handler)
 
 app.include_router(api_router, prefix="/api/v1")
+app.include_router(public_router)
 
 
 @app.get("/health", tags=["health"])
