@@ -181,3 +181,42 @@ jobs:
         if: always()
         run: |
           docker compose -f docker-compose.vps.yml -f docker-compose.ci-smoke.yml -p xmip-ci down -v
+
+  public-web:
+    name: Public web build
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: apps/public-web
+
+    # Safe, non-production CI values. Server-side fetches degrade to an empty
+    # state when the backend is absent, so typecheck/lint/build pass without a
+    # running API. The public site is separate from the frontend/ admin console.
+    env:
+      XCRIPTO_API_URL: http://localhost:8000
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_PUBLIC_SITE_NAME: XCripto
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: apps/public-web/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build
+        run: npm run build
