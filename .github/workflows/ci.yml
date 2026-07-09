@@ -1,5 +1,12 @@
 name: XMIP CI
 
+# Minimal CI pipeline for the v0.1.0 release candidate.
+# Gates main against basic regressions: backend tests+lint, frontend build+lint+tests,
+# and a Docker Compose smoke of the VPS stack (postgres + api). No deploy automation.
+#
+# Branch protection requires the job NAMES "Backend tests and lint" and "Frontend build".
+# Do not rename those jobs.
+
 on:
   push:
     branches:
@@ -7,9 +14,15 @@ on:
       - "feat/**"
       - "fix/**"
       - "hard/**"
+      - "ci/**"
   pull_request:
     branches:
       - main
+
+# CI must never depend on a local backend/.env. This disables dotenv loading globally
+# (tests already set it via conftest; this also covers the "Import app" step).
+env:
+  XMIP_DISABLE_DOTENV: "1"
 
 jobs:
   backend:
@@ -20,6 +33,15 @@ jobs:
       run:
         working-directory: backend
 
+    # Tests run against an in-memory SQLite DB configured in tests/conftest.py, so no
+    # PostgreSQL service container is required here. The Docker smoke job below exercises
+    # the real PostgreSQL + api stack.
+    #
+    # NOTE: do NOT inject app config env vars (ENVIRONMENT/AUTH_ENABLED/API_KEY/...) at the
+    # job level. pydantic BaseSettings reads them from os.environ and they would leak into
+    # the suite, breaking config-hardening tests (e.g. test_production_hardening). The suite
+    # controls its own environment via tests/conftest.py. Only XMIP_DISABLE_DOTENV (set at
+    # the workflow level) is required, and it merely disables reading a local .env file.
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -51,6 +73,14 @@ jobs:
       run:
         working-directory: frontend
 
+    # Safe, non-production CI values. import.meta.env.VITE_* are only needed at runtime;
+    # the build does not embed real keys.
+    env:
+      VITE_API_BASE_URL: http://localhost:8000
+      VITE_API_KEY: test-ci-key
+      VITE_ACTOR_ROLE: system
+      VITE_ACTOR_ID: ci
+
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -73,3 +103,81 @@ jobs:
 
       - name: Lint frontend
         run: npm run lint --if-present
+
+  docker-smoke:
+    name: Docker compose smoke
+    runs-on: ubuntu-latest
+
+    # CI-safe, throwaway values only (never real secrets). Docker Compose reads these
+    # from the environment for ${VAR} interpolation in docker-compose.vps.yml.
+    env:
+      APP_DOMAIN: localhost
+      API_DOMAIN: localhost
+      ACME_EMAIL: test@example.com
+      POSTGRES_USER: xmip
+      POSTGRES_PASSWORD: ci-password
+      POSTGRES_DB: xmip
+      API_KEY: test-ci-key
+      VITE_API_KEY: test-ci-key
+      ENVIRONMENT: staging
+      APP_ENV: staging
+      DEBUG: "false"
+      AUTO_CREATE_TABLES: "false"
+      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      CONNECTORS_ENABLED: "false"
+      RSS_CONNECTOR_ENABLED: "false"
+      CONNECTOR_AUTO_PROMOTE: "false"
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate VPS compose config
+        run: docker compose -f docker-compose.vps.yml config
+
+      # The production compose only exposes Caddy. For the smoke we publish the api port
+      # via a throwaway override (not committed) so the runner can curl it. Caddy/TLS and
+      # the nginx frontend are intentionally NOT started here.
+      - name: Create CI port override
+        run: |
+          cat > docker-compose.ci-smoke.yml <<'EOF'
+          services:
+            api:
+              ports:
+                - "8000:8000"
+          EOF
+
+      - name: Build and start postgres + api
+        run: |
+          docker compose -f docker-compose.vps.yml -f docker-compose.ci-smoke.yml -p xmip-ci \
+            up -d --build postgres api
+
+      - name: Wait for API health
+        run: |
+          for i in $(seq 1 40); do
+            if curl -fsS http://localhost:8000/health >/dev/null 2>&1; then
+              echo "api healthy after ~$((i*5))s"; exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::API did not become healthy in time"
+          docker compose -f docker-compose.vps.yml -f docker-compose.ci-smoke.yml -p xmip-ci logs api
+          exit 1
+
+      - name: Smoke /health and /ready
+        run: |
+          echo "--- /health ---"; curl -f http://localhost:8000/health; echo
+          echo "--- /ready ---";  curl -f http://localhost:8000/ready;  echo
+
+      - name: Assert no secrets in api logs
+        run: |
+          if docker compose -f docker-compose.vps.yml -f docker-compose.ci-smoke.yml -p xmip-ci logs api \
+             | grep -iE 'test-ci-key|ci-password'; then
+            echo "::error::secret value found in api logs"; exit 1
+          fi
+          echo "no secrets leaked in api logs"
+
+      - name: Teardown
+        if: always()
+        run: |
+          docker compose -f docker-compose.vps.yml -f docker-compose.ci-smoke.yml -p xmip-ci down -v
