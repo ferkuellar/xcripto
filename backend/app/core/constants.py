@@ -110,6 +110,7 @@ DISTRIBUTION_CHANNELS = {
     "YouTube Shorts",
     "TikTok",
     "Instagram Reels",
+    "X",
     "X / Twitter",
     "LinkedIn",
     "Newsletter",

@@ -50,6 +50,27 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("APP_DOMAIN", "PUBLIC_SITE_URL"),
     )
+    telegram_bot_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "TELEGRAM_TOKEN"),
+    )
+    telegram_channel_id: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("TELEGRAM_CHANNEL_ID", "TELEGRAM_CHAT_ID"),
+    )
+    x_api_key: str | None = Field(default=None, validation_alias=AliasChoices("X_API_KEY"))
+    x_api_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("X_API_SECRET"),
+    )
+    x_access_token: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("X_ACCESS_TOKEN"),
+    )
+    x_access_token_secret: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("X_ACCESS_TOKEN_SECRET"),
+    )
     request_logging_enabled: bool = True
     request_body_logging_enabled: bool = False
     response_body_logging_enabled: bool = False
