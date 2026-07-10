@@ -13,6 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.errors import ConflictError, NotFoundError
+from app.integrations.binance_square_client import (
+    BinanceSquarePublishError,
+    BinanceSquarePublishResult,
+    build_binance_square_post,
+    publish_binance_square_post,
+)
 from app.integrations.x_client import (
     XPublishError,
     XPublishResult,
@@ -25,6 +31,8 @@ from app.services.public_news_service import slugify
 logger = logging.getLogger(__name__)
 
 TELEGRAM_CHANNEL = "Telegram"
+BINANCE_SQUARE_CHANNEL = "BINANCE_SQUARE"
+BINANCE_SQUARE_CHANNEL_ALIASES = {BINANCE_SQUARE_CHANNEL, "Binance Square"}
 X_CHANNEL_ALIASES = {"X", "X / Twitter"}
 TELEGRAM_API_BASE_URL = "https://api.telegram.org"
 
@@ -81,6 +89,8 @@ async def _latest_publication_for_channel(
     channel_aliases = {channel}
     if channel in X_CHANNEL_ALIASES:
         channel_aliases = X_CHANNEL_ALIASES
+    if channel in BINANCE_SQUARE_CHANNEL_ALIASES:
+        channel_aliases = BINANCE_SQUARE_CHANNEL_ALIASES
     result = await session.execute(
         select(PublicationRecord)
         .where(
@@ -153,7 +163,9 @@ async def dispatch_publication_record(
     if record is None:
         raise NotFoundError("Publication record")
 
-    if record.channel not in {TELEGRAM_CHANNEL} | X_CHANNEL_ALIASES:
+    if record.channel not in (
+        {TELEGRAM_CHANNEL} | X_CHANNEL_ALIASES | BINANCE_SQUARE_CHANNEL_ALIASES
+    ):
         return PublicationDispatchResult(
             publication_record_id=record.id,
             channel=record.channel,
@@ -162,7 +174,11 @@ async def dispatch_publication_record(
             reason="channel not implemented",
         )
 
-    if record.publication_status == "published" and (record.external_id or record.published_url):
+    if record.publication_status == "published" and (
+        record.external_id
+        or record.published_url
+        or (record.channel in BINANCE_SQUARE_CHANNEL_ALIASES and record.published_at is not None)
+    ):
         return PublicationDispatchResult(
             publication_record_id=record.id,
             channel=record.channel,
@@ -357,6 +373,84 @@ async def dispatch_publication_record(
             dry_run=False,
             external_id=result.post_id,
             published_url=result.post_url,
+            message=text,
+        )
+
+    if record.channel in BINANCE_SQUARE_CHANNEL_ALIASES:
+        text = build_binance_square_post(
+            title=content_piece.title or news_item.title,
+            summary=content_piece.summary or news_item.summary,
+            canonical_url=canonical_url,
+        )
+        if dry_run:
+            logger.info(
+                "binance square publication dry-run",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                },
+            )
+            return PublicationDispatchResult(
+                publication_record_id=record.id,
+                channel=record.channel,
+                dispatched=False,
+                dry_run=True,
+                message=text,
+                reason="dry_run",
+            )
+
+        try:
+            result: BinanceSquarePublishResult = await asyncio.to_thread(
+                publish_binance_square_post,
+                text,
+            )
+        except BinanceSquarePublishError as exc:
+            note = f"binance square publish failed: {exc}"
+            if exc.ambiguous_outcome:
+                note = f"{note} (ambiguous outcome)"
+            await _mark_publication_failed(
+                session,
+                record,
+                note,
+            )
+            logger.warning(
+                "binance square publication failed",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                    "status_code": exc.status_code,
+                    "retryable": exc.retryable,
+                    "error_type": exc.error_type,
+                    "ambiguous_outcome": exc.ambiguous_outcome,
+                },
+            )
+            raise ConflictError("Binance Square publication failed") from exc
+
+        record.external_id = result.external_id
+        record.published_url = result.published_url
+        record.publication_status = "published"
+        record.published_at = datetime.now(UTC)
+        await session.commit()
+        await session.refresh(record)
+
+        logger.info(
+            "binance square publication dispatched",
+            extra={
+                "publication_record_id": record.id,
+                "news_item_id": record.news_item_id,
+                "channel": record.channel,
+                "external_id": result.external_id,
+            },
+        )
+        return PublicationDispatchResult(
+            publication_record_id=record.id,
+            channel=record.channel,
+            dispatched=True,
+            dry_run=False,
+            external_id=result.external_id,
+            published_url=result.published_url,
             message=text,
         )
 

@@ -71,6 +71,10 @@ class Settings(BaseSettings):
         default=None,
         validation_alias=AliasChoices("X_ACCESS_TOKEN_SECRET"),
     )
+    binance_square_openapi_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("BINANCE_SQUARE_OPENAPI_KEY"),
+    )
     request_logging_enabled: bool = True
     request_body_logging_enabled: bool = False
     response_body_logging_enabled: bool = False

@@ -5,6 +5,7 @@ from app.core.errors import ConflictError, DomainValidationError, NotFoundError
 from app.models import ContentPiece, DistributionPlan, PublicationRecord
 from app.schemas.publication_record import PublicationRecordCreate
 from app.services.publication_dispatch_service import (
+    BINANCE_SQUARE_CHANNEL_ALIASES,
     X_CHANNEL_ALIASES,
     dispatch_publication_record,
 )
@@ -16,7 +17,9 @@ def _validate_published_reference(
     published_url: str | None,
     external_id: str | None,
 ) -> None:
-    if publication_status == "published" and channel in {"Telegram"} | X_CHANNEL_ALIASES:
+    if publication_status == "published" and channel in (
+        {"Telegram"} | X_CHANNEL_ALIASES | BINANCE_SQUARE_CHANNEL_ALIASES
+    ):
         return
     if publication_status == "published" and not (published_url or external_id):
         raise DomainValidationError(

@@ -116,6 +116,8 @@ DISTRIBUTION_CHANNELS = {
     "Newsletter",
     "Blog / Web",
     "Telegram",
+    "BINANCE_SQUARE",
+    "Binance Square",
     "Discord",
     "internal",
 }
