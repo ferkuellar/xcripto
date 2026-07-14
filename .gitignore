@@ -23,6 +23,7 @@ htmlcov/
 *.db
 .idea/
 .vscode/
+runtime/
 
 # Local Claude/agent workspace
 .claude/

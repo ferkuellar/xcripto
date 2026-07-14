@@ -6,9 +6,10 @@ from typing import Literal
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Tests set XMIP_DISABLE_DOTENV=1 so a local backend/.env (used for docker/VPS runs)
-# never leaks into the suite. Production/dev behaviour is unchanged: env_file=".env".
-_ENV_FILE = None if os.environ.get("XMIP_DISABLE_DOTENV") == "1" else ".env"
+# Tests set XMIP_DISABLE_DOTENV=1 so local dotenv files do not leak into the suite.
+# In normal local/dev runs, `.env.local` overrides `.env` so production placeholders
+# in `.env` do not block startup.
+_ENV_FILE = None if os.environ.get("XMIP_DISABLE_DOTENV") == "1" else (".env", ".env.local")
 
 
 class Settings(BaseSettings):

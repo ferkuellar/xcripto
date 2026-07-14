@@ -5,13 +5,13 @@ import unicodedata
 from html import escape
 from urllib.parse import urlsplit, urlunsplit
 
-from sqlalchemy import Select, desc, func, or_, select
+from sqlalchemy import Select, desc, exists, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import XCRIPTO_WEB_CHANNEL
 from app.core.errors import NotFoundError
 from app.models import ContentPiece, NewsItem, PublicationRecord
 
-PUBLIC_NEWS_STATUSES = {"approved", "scheduled", "published", "distributed"}
 PUBLIC_ARTICLE_BODY_STATUSES = {"approved"}
 
 _SLUG_RE = re.compile(r"[^a-z0-9]+")
@@ -38,12 +38,79 @@ def public_news_url(base_url: str, slug: str) -> str:
     return f"{base_url.rstrip('/')}/news/{slug}"
 
 
+def canonical_slug_from_url(value: str | None) -> str | None:
+    if not value:
+        return None
+    path = urlsplit(value).path.rstrip("/")
+    if not path:
+        return None
+    slug = path.rsplit("/", 1)[-1].strip()
+    return slug or None
+
+
+async def latest_canonical_publication_record(
+    session: AsyncSession,
+    news_item_id: str,
+) -> PublicationRecord | None:
+    result = await session.execute(
+        select(PublicationRecord)
+        .where(
+            PublicationRecord.news_item_id == news_item_id,
+            PublicationRecord.channel == XCRIPTO_WEB_CHANNEL,
+            PublicationRecord.publication_status == "published",
+        )
+        .order_by(PublicationRecord.created_at.desc())
+        .limit(1)
+    )
+    return result.scalar_one_or_none()
+
+
+async def resolve_canonical_slug(
+    session: AsyncSession,
+    news_item_id: str,
+    title: str,
+) -> str:
+    existing = await latest_canonical_publication_record(session, news_item_id)
+    if existing and existing.canonical_slug:
+        return existing.canonical_slug
+    if existing and existing.published_url:
+        existing_slug = canonical_slug_from_url(existing.published_url)
+        if existing_slug:
+            return existing_slug
+
+    candidate = slugify(title)
+    result = await session.execute(
+        select(
+            PublicationRecord.news_item_id,
+            PublicationRecord.canonical_slug,
+            PublicationRecord.published_url,
+        )
+        .where(
+            PublicationRecord.channel == XCRIPTO_WEB_CHANNEL,
+            PublicationRecord.publication_status == "published",
+        )
+    )
+    for row_news_item_id, row_slug, row_published_url in result.all():
+        slug = row_slug or canonical_slug_from_url(row_published_url)
+        if slug == candidate and row_news_item_id != news_item_id:
+            return f"{candidate}-{news_item_id[:8]}"
+    return candidate
+
+
 def _apply_public_filters(
     stmt: Select,
     q: str | None = None,
     category: str | None = None,
 ) -> Select:
-    stmt = stmt.where(NewsItem.status.in_(PUBLIC_NEWS_STATUSES))
+    stmt = stmt.where(
+        exists(
+            select(1).where(
+                PublicationRecord.news_item_id == NewsItem.id,
+                PublicationRecord.channel == XCRIPTO_WEB_CHANNEL,
+                PublicationRecord.publication_status == "published",
+            )
+        )
+    )
     if category is not None:
         stmt = stmt.where(NewsItem.category == category)
     if q is not None:
@@ -89,12 +156,21 @@ async def count_public_news_items(
 
 async def get_public_news_item_by_slug(session: AsyncSession, slug: str) -> NewsItem | None:
     result = await session.execute(
-        select(NewsItem)
-        .where(NewsItem.status.in_(PUBLIC_NEWS_STATUSES))
-        .order_by(desc(NewsItem.updated_at), desc(NewsItem.created_at))
+        select(NewsItem, PublicationRecord)
+        .join(PublicationRecord, PublicationRecord.news_item_id == NewsItem.id)
+        .where(
+            PublicationRecord.channel == XCRIPTO_WEB_CHANNEL,
+            PublicationRecord.publication_status == "published",
+        )
+        .order_by(desc(PublicationRecord.created_at), desc(NewsItem.updated_at))
     )
-    for item in result.scalars().all():
-        if slugify(item.title) == slug:
+    for item, publication_record in result.all():
+        item_slug = publication_record.canonical_slug or canonical_slug_from_url(
+            publication_record.published_url
+        )
+        if item_slug is None:
+            item_slug = slugify(item.title)
+        if item_slug == slug:
             return item
     return None
 
@@ -102,7 +178,15 @@ async def get_public_news_item_by_slug(session: AsyncSession, slug: str) -> News
 async def get_public_categories(session: AsyncSession) -> list[str]:
     result = await session.execute(
         select(NewsItem.category)
-        .where(NewsItem.status.in_(PUBLIC_NEWS_STATUSES))
+        .where(
+            exists(
+                select(1).where(
+                    PublicationRecord.news_item_id == NewsItem.id,
+                    PublicationRecord.channel == XCRIPTO_WEB_CHANNEL,
+                    PublicationRecord.publication_status == "published",
+                )
+            )
+        )
         .distinct()
         .order_by(NewsItem.category.asc())
     )
@@ -143,27 +227,36 @@ async def build_public_news_payload(
     item: NewsItem,
     base_url: str,
 ) -> dict:
-    publication_record = await latest_publication_record(session, item.id)
-    slug = slugify(item.title)
-    canonical_url = public_news_url(base_url, slug)
+    publication_record = await latest_canonical_publication_record(session, item.id)
+    if publication_record is None:
+        raise NotFoundError("Public news item")
+    slug = (
+        publication_record.canonical_slug
+        or canonical_slug_from_url(publication_record.published_url)
+        or slugify(item.title)
+    )
+    canonical_url = publication_record.published_url or public_news_url(base_url, slug)
+    content_piece = await latest_public_content_piece(session, item.id)
+    title = content_piece.title if content_piece else item.title
+    summary = content_piece.summary if content_piece else item.summary
     author = (
         publication_record.owner
         if publication_record and publication_record.owner
+        else content_piece.owner
+        if content_piece and content_piece.owner
         else item.source_name
     )
-    published_at = publication_record.published_at if publication_record else None
-    if published_at is None and item.status == "published":
-        published_at = item.updated_at
+    published_at = publication_record.published_at or item.updated_at
 
     return {
         "id": item.id,
         "slug": slug,
-        "title": item.title,
-        "summary": item.summary,
+        "title": title,
+        "summary": summary,
         "category": item.category,
         "source_name": item.source_name,
         "source_url": item.source_url,
-        "status": item.status,
+        "status": publication_record.publication_status,
         "author": author,
         "published_at": published_at,
         "created_at": item.created_at,
@@ -189,11 +282,17 @@ async def build_public_article_payload(
     if content_piece is None:
         raise NotFoundError("Public article")
 
-    publication_record = await latest_publication_record(session, item.id)
+    publication_record = await latest_canonical_publication_record(session, item.id)
+    if publication_record is None:
+        raise NotFoundError("Public article")
     summary = content_piece.summary or item.summary
     title = content_piece.title or item.title
-    slug = slugify(item.title)
-    canonical_url = public_news_url(base_url, slug)
+    slug = (
+        publication_record.canonical_slug
+        or canonical_slug_from_url(publication_record.published_url)
+        or slugify(title)
+    )
+    canonical_url = publication_record.published_url or public_news_url(base_url, slug)
     author = (
         publication_record.owner
         if publication_record and publication_record.owner
@@ -201,9 +300,7 @@ async def build_public_article_payload(
         if content_piece.owner
         else item.source_name
     )
-    published_at = publication_record.published_at if publication_record else None
-    if published_at is None:
-        published_at = content_piece.updated_at or item.updated_at
+    published_at = publication_record.published_at or content_piece.updated_at or item.updated_at
 
     return {
         "id": item.id,
@@ -215,7 +312,7 @@ async def build_public_article_payload(
         "category": content_piece.category or item.category,
         "source_name": item.source_name,
         "source_url": item.source_url,
-        "status": item.status,
+        "status": publication_record.publication_status,
         "author": author,
         "published_at": published_at,
         "created_at": item.created_at,

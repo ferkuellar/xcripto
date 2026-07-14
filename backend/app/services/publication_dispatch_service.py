@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
+from app.core.constants import XCRIPTO_WEB_CHANNEL
 from app.core.errors import ConflictError, NotFoundError
 from app.integrations.binance_square_client import (
     BinanceSquarePublishError,
@@ -26,11 +27,12 @@ from app.integrations.x_client import (
     publish_x_post,
 )
 from app.models import ContentPiece, NewsItem, PublicationRecord
-from app.services.public_news_service import slugify
+from app.services.public_news_service import resolve_canonical_slug, slugify
 
 logger = logging.getLogger(__name__)
 
 TELEGRAM_CHANNEL = "Telegram"
+XCRIPTO_WEB_CHANNEL_ALIASES = {XCRIPTO_WEB_CHANNEL}
 BINANCE_SQUARE_CHANNEL = "BINANCE_SQUARE"
 BINANCE_SQUARE_CHANNEL_ALIASES = {BINANCE_SQUARE_CHANNEL, "Binance Square"}
 X_CHANNEL_ALIASES = {"X", "X / Twitter"}
@@ -87,6 +89,8 @@ async def _latest_publication_for_channel(
     channel: str,
 ) -> PublicationRecord | None:
     channel_aliases = {channel}
+    if channel == XCRIPTO_WEB_CHANNEL:
+        channel_aliases = XCRIPTO_WEB_CHANNEL_ALIASES
     if channel in X_CHANNEL_ALIASES:
         channel_aliases = X_CHANNEL_ALIASES
     if channel in BINANCE_SQUARE_CHANNEL_ALIASES:
@@ -164,7 +168,10 @@ async def dispatch_publication_record(
         raise NotFoundError("Publication record")
 
     if record.channel not in (
-        {TELEGRAM_CHANNEL} | X_CHANNEL_ALIASES | BINANCE_SQUARE_CHANNEL_ALIASES
+        {TELEGRAM_CHANNEL}
+        | X_CHANNEL_ALIASES
+        | BINANCE_SQUARE_CHANNEL_ALIASES
+        | XCRIPTO_WEB_CHANNEL_ALIASES
     ):
         return PublicationDispatchResult(
             publication_record_id=record.id,
@@ -178,6 +185,10 @@ async def dispatch_publication_record(
         record.external_id
         or record.published_url
         or (record.channel in BINANCE_SQUARE_CHANNEL_ALIASES and record.published_at is not None)
+        or (
+            record.channel in XCRIPTO_WEB_CHANNEL_ALIASES
+            and (record.canonical_slug or record.published_at is not None)
+        )
     ):
         return PublicationDispatchResult(
             publication_record_id=record.id,
@@ -220,11 +231,126 @@ async def dispatch_publication_record(
 
     news_item = await session.get(NewsItem, record.news_item_id)
     content_piece = await session.get(ContentPiece, record.content_piece_id)
-    if news_item is None:
-        raise NotFoundError("News item")
-    if content_piece is None:
-        raise NotFoundError("Content piece")
+    if record.channel not in XCRIPTO_WEB_CHANNEL_ALIASES:
+        if news_item is None:
+            raise NotFoundError("News item")
+        if content_piece is None:
+            raise NotFoundError("Content piece")
+    if record.channel in XCRIPTO_WEB_CHANNEL_ALIASES:
+        try:
+            if news_item is None:
+                raise NotFoundError("News item")
+            if content_piece is None:
+                raise NotFoundError("Content piece")
+            article_title = (content_piece.title or news_item.title or "").strip()
+            article_body = (content_piece.body or "").strip()
+            if not article_title:
+                raise ConflictError("XCripto web publication failed: title unavailable")
+            if not article_body:
+                raise ConflictError("XCripto web publication failed: body unavailable")
 
+            slug = await resolve_canonical_slug(
+                session,
+                record.news_item_id,
+                article_title,
+            )
+            canonical_url = (
+                f"{(get_settings().public_site_url or 'https://localhost').rstrip('/')}/news/"
+                f"{slug}"
+            )
+            if dry_run:
+                logger.info(
+                    "xcripto web publication dry-run",
+                    extra={
+                        "publication_record_id": record.id,
+                        "news_item_id": record.news_item_id,
+                        "channel": record.channel,
+                        "canonical_slug": slug,
+                    },
+                )
+                return PublicationDispatchResult(
+                    publication_record_id=record.id,
+                    channel=record.channel,
+                    dispatched=False,
+                    dry_run=True,
+                    message=canonical_url,
+                    reason="dry_run",
+                )
+
+            record.canonical_slug = slug
+            record.external_id = news_item.id
+            record.published_url = canonical_url
+            record.publication_status = "published"
+            record.published_at = datetime.now(UTC)
+            news_item.status = "published"
+            await session.commit()
+            await session.refresh(record)
+
+            logger.info(
+                "xcripto web publication dispatched",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                    "canonical_slug": slug,
+                },
+            )
+            return PublicationDispatchResult(
+                publication_record_id=record.id,
+                channel=record.channel,
+                dispatched=True,
+                dry_run=False,
+                external_id=news_item.id,
+                published_url=canonical_url,
+                message=canonical_url,
+            )
+        except ConflictError as exc:
+            await _mark_publication_failed(
+                session,
+                record,
+                f"xcripto web publish failed: {exc}",
+            )
+            logger.warning(
+                "xcripto web publication failed",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                    "error_type": "validation",
+                },
+            )
+            raise ConflictError("XCripto web publication failed") from exc
+        except NotFoundError as exc:
+            await _mark_publication_failed(
+                session,
+                record,
+                "xcripto web publish failed: approved content unavailable",
+            )
+            logger.warning(
+                "xcripto web publication failed",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                    "error_type": "missing_content",
+                },
+            )
+            raise ConflictError("XCripto web publication failed") from exc
+        except Exception as exc:
+            await _mark_publication_failed(
+                session,
+                record,
+                "xcripto web publish failed: persistence error",
+            )
+            logger.exception(
+                "xcripto web publication failed",
+                extra={
+                    "publication_record_id": record.id,
+                    "news_item_id": record.news_item_id,
+                    "channel": record.channel,
+                },
+            )
+            raise ConflictError("XCripto web publication failed") from exc
     canonical_url = (
         f"{(get_settings().public_site_url or 'https://localhost').rstrip('/')}/news/"
         f"{slugify(content_piece.title or news_item.title)}"

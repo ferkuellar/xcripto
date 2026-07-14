@@ -1,6 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import XCRIPTO_WEB_CHANNEL
 from app.core.errors import ConflictError, DomainValidationError, NotFoundError
 from app.models import ContentPiece, DistributionPlan, PublicationRecord
 from app.schemas.publication_record import PublicationRecordCreate
@@ -18,7 +19,10 @@ def _validate_published_reference(
     external_id: str | None,
 ) -> None:
     if publication_status == "published" and channel in (
-        {"Telegram"} | X_CHANNEL_ALIASES | BINANCE_SQUARE_CHANNEL_ALIASES
+        {"Telegram"}
+        | {XCRIPTO_WEB_CHANNEL}
+        | X_CHANNEL_ALIASES
+        | BINANCE_SQUARE_CHANNEL_ALIASES
     ):
         return
     if publication_status == "published" and not (published_url or external_id):

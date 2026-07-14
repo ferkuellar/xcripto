@@ -121,6 +121,9 @@ DISTRIBUTION_CHANNELS = {
     "Discord",
     "internal",
 }
+
+XCRIPTO_WEB_CHANNEL = "XCRIPTO_WEB"
+DISTRIBUTION_CHANNELS = DISTRIBUTION_CHANNELS | {XCRIPTO_WEB_CHANNEL}
 DISTRIBUTION_TYPES = {
     "primary_publication",
     "secondary_distribution",
