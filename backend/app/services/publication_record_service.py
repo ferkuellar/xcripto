@@ -8,6 +8,7 @@ from app.schemas.publication_record import PublicationRecordCreate
 from app.services.publication_dispatch_service import (
     BINANCE_SQUARE_CHANNEL_ALIASES,
     X_CHANNEL_ALIASES,
+    _latest_publication_for_channel,
     dispatch_publication_record,
 )
 
@@ -36,6 +37,14 @@ async def create_publication_record(
     payload: PublicationRecordCreate,
     correlation_id: str | None = None,
 ) -> PublicationRecord:
+    existing = await _latest_publication_for_channel(
+        session,
+        payload.news_item_id,
+        payload.channel,
+    )
+    if existing is not None and existing.publication_status == "published":
+        return existing
+
     content_piece = await session.get(ContentPiece, payload.content_piece_id)
     if content_piece is None:
         raise NotFoundError("Content piece")

@@ -270,6 +270,27 @@ async def test_create_publication_record_valid(client):
     assert response.json()["publication_status"] == "scheduled"
 
 
+async def test_create_publication_record_is_idempotent_for_published_xcripto_web(client):
+    news, piece, plan = await create_publishable_chain(client)
+    payload = publication_record_payload(
+        news["id"],
+        piece["id"],
+        plan["id"],
+        channel="XCRIPTO_WEB",
+        publication_status="published",
+    )
+
+    first = await client.post("/api/v1/publication-records", json=payload)
+    second = await client.post("/api/v1/publication-records", json=payload)
+    records = await client.get("/api/v1/publication-records")
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert first.json()["id"] == second.json()["id"]
+    assert second.json()["publication_status"] == "published"
+    assert len([record for record in records.json() if record["news_item_id"] == news["id"]]) == 1
+
+
 async def test_create_publication_record_blocks_unapproved_content_piece(client):
     news = await create_news_item(client)
     piece = await create_content_piece(client, news["id"], status="reviewing")
