@@ -4,7 +4,7 @@ Backend API de la plataforma multiagente **XMIP** (newsroom de **XCripto**, bajo
 
 > **Release candidate local actual: `v0.1.0-rc1`** — ver
 > `docs/RELEASE_NOTES_v0.1.0-rc1.md` y `docs/LOCAL_RC_v0.1.0-rc1_REPORT.md`.
-> Correr tests: `pytest` (sin un `.env` con `AUTH_ENABLED=true`, que rompería el suite).
+> Correr tests: `pytest` (sin un `.env.local` con `AUTH_ENABLED=true`, que rompería el suite).
 > Correr Docker/PostgreSQL: `API_PORT=8010 POSTGRES_PORT=55432 docker compose up --build`.
 
 Estado actual: MVP backend funcional con FastAPI, SQLAlchemy async, trazabilidad por
@@ -77,11 +77,14 @@ Los puertos del host son configurables (útil si `:8000`/`:5432` ya están ocupa
 API_PORT=8010 POSTGRES_PORT=55432 docker compose up --build
 ```
 
-Para una corrida production-like con auth, copia `.env.local.production.example` a `.env`
-(gitignored) y añade `AUTH_ENABLED=true`, `API_KEY=dev-secret` y
-`DATABASE_URL=postgresql+asyncpg://xmip:xmip@postgres:5432/xmip`. Ver
-`docs/LOCAL_DOCKER_POSTGRES_E2E_REPORT.md` para el flujo E2E validado (Alembic, smoke tests,
-newsroom QA y persistencia).
+Para una corrida production-like local, copia `.env.local.production.example` a
+`.env.local` (gitignored) y usa `PUBLIC_WEB_BASE_URL=http://localhost:3000`,
+`AUTH_ENABLED=true`, `API_KEY=dev-secret` y `DATABASE_URL=sqlite+aiosqlite:///./xmip_local_prod.db`.
+Para el contrato real de producción usa `.env.production.example` como plantilla:
+`ENVIRONMENT=production`, `DEBUG=false`, `DATABASE_URL=postgresql+asyncpg://...`,
+`PUBLIC_WEB_BASE_URL=https://xcripto.com`, `CORS_ALLOWED_ORIGINS=https://xcripto.com,https://admin.xcripto.com`.
+Ver `docs/LOCAL_DOCKER_POSTGRES_E2E_REPORT.md` para el flujo E2E validado
+(Alembic, smoke tests, newsroom QA y persistencia).
 
 ## Migraciones Alembic
 
@@ -102,7 +105,8 @@ alembic downgrade -1
 ```
 
 Alembic lee `DATABASE_URL` desde la configuración del backend. El archivo `alembic.ini`
-incluye un fallback local SQLite, pero en entornos reales debe usarse `.env`.
+incluye un fallback local SQLite, pero en entornos reales la configuración debe venir
+del entorno de despliegue, no de un `.env` compartido.
 
 `AUTO_CREATE_TABLES` se conserva solo como ayuda de desarrollo/test. Para staging/prod,
 configura:
@@ -123,7 +127,7 @@ Los tests usan SQLite en memoria y no requieren base externa.
 
 ## Configuración
 
-Copia `.env.example` a `.env`. Variables principales:
+Copia `.env.example` a `.env.local`. Variables principales:
 
 | Variable               | Default                           | Descripción                                                                               |
 | ---------------------- | --------------------------------- | ------------------------------------------------------------------------------------------ |
@@ -134,6 +138,7 @@ Copia `.env.example` a `.env`. Variables principales:
 | `ENVIRONMENT`        | `development`                   | `development` / `staging` / `production` / `test`; `APP_ENV` también se acepta como alias |
 | `DEBUG`              | `false`                         | Evita exponer internals en producción                                                     |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Orígenes frontend/admin permitidos                                          |
+| `PUBLIC_WEB_BASE_URL` | `http://localhost:3000`        | Base canónica del sitio público; en producción debe ser `https://xcripto.com`             |
 | `CORS_ALLOW_CREDENTIALS` | `false`                    | Credenciales CORS                                                                         |
 | `CORS_ALLOWED_METHODS` | `GET,POST,PATCH,PUT,DELETE,OPTIONS` | Métodos CORS permitidos                                                           |
 | `CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,X-API-Key,X-Correlation-ID,X-Actor-Id,X-Actor-Role,X-Actor-Display` | Headers CORS |
@@ -150,14 +155,16 @@ Copia `.env.example` a `.env`. Variables principales:
 
 En `ENVIRONMENT=staging`, `production` o `prod`, la configuración falla si usa SQLite,
 `AUTH_ENABLED=false`, `API_KEY` vacío o placeholder, `AUTO_CREATE_TABLES=true`,
-`DEBUG=true` o `CORS_ALLOWED_ORIGINS=*`. Configura explícitamente el origen del
-frontend/admin y usa PostgreSQL:
+`DEBUG=true`, `CORS_ALLOWED_ORIGINS=*`, orígenes localhost, o `PUBLIC_WEB_BASE_URL`
+apuntando a localhost. Configura explícitamente el origen del frontend/admin,
+usa PostgreSQL y publica con un dominio HTTPS real:
 
 ```env
 DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/xmip
 AUTH_ENABLED=true
 API_KEY=<secret-from-secret-manager>
 CORS_ALLOWED_ORIGINS=https://admin.xcripto.example
+PUBLIC_WEB_BASE_URL=https://xcripto.example
 ```
 
 ## Autorización mínima
@@ -2229,8 +2236,9 @@ Variables Vite sugeridas para desarrollo interno:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_API_KEY=dev-secret
+VITE_API_KEY=
 VITE_ACTOR_ROLE=admin
+VITE_ACTOR_ID=local-admin
 ```
 
 Headers principales:
@@ -2242,9 +2250,10 @@ X-Actor-Id
 X-Correlation-ID
 ```
 
-`VITE_API_KEY` solo es aceptable para desarrollo local o admin interno controlado.
-No debe exponerse una API key productiva a usuarios finales. La fase futura de
-auth debe reemplazar esto con login real y JWT/OAuth/sesiones.
+`VITE_*` siempre es browser-exposed. `VITE_API_KEY` solo es aceptable para
+desarrollo local o admin interno controlado. No debe exponerse una API key
+productiva a usuarios finales. La fase futura de auth debe reemplazar esto con
+login real y JWT/OAuth/sesiones.
 
 Endpoints frontend-safe:
 

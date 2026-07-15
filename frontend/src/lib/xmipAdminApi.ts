@@ -1,5 +1,6 @@
 import type { ApiErrorPayload } from '@/types/xmip'
 
+// Browser-exposed runtime config; never place true secrets in VITE_* values.
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
 const API_KEY: string | undefined = import.meta.env.VITE_API_KEY || undefined
 const ACTOR_ROLE: string | undefined = import.meta.env.VITE_ACTOR_ROLE || undefined

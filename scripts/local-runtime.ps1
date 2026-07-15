@@ -79,7 +79,7 @@ X_API_SECRET=
 X_ACCESS_TOKEN=
 X_ACCESS_TOKEN_SECRET=
 BINANCE_SQUARE_OPENAPI_KEY=
-PUBLIC_SITE_URL=http://localhost:3000
+PUBLIC_WEB_BASE_URL=http://localhost:3000
 '@
 
   $frontendEnvContent = @'

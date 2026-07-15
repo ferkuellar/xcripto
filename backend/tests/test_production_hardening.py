@@ -109,6 +109,9 @@ def test_cors_wildcard_blocked_in_production_when_auth_enabled():
             environment="production",
             auth_enabled=True,
             cors_allowed_origins="*",
+            api_key="prod-secret",
+            database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+            public_web_base_url="https://xcripto.com",
         )
 
 
@@ -128,6 +131,9 @@ def test_cors_wildcard_blocked_in_staging_even_without_auth():
             environment="staging",
             auth_enabled=False,
             cors_allowed_origins="*",
+            api_key="staging-secret",
+            database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+            public_web_base_url="https://xcripto.com",
         )
 
 
@@ -163,6 +169,7 @@ def test_app_env_alias_is_supported_for_deployed_environment():
         api_key="staging-secret",
         database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
         cors_allowed_origins="https://admin-staging.example.com",
+        public_web_base_url="https://xcripto-staging.example.com",
     )
 
     assert settings.environment == "staging"
@@ -170,7 +177,11 @@ def test_app_env_alias_is_supported_for_deployed_environment():
 
 def test_deployed_environment_requires_api_key_and_postgres():
     with pytest.raises(ValidationError) as exc:
-        Settings(environment="production")
+        Settings(
+            environment="production",
+            public_web_base_url="https://xcripto.com",
+            cors_allowed_origins="https://xcripto.com,https://admin.xcripto.com",
+        )
 
     message = str(exc.value)
     assert "AUTH_ENABLED must be true" in message
@@ -186,6 +197,30 @@ def test_deployed_environment_rejects_dev_secret():
             api_key="dev-secret",
             database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
             cors_allowed_origins="https://admin-staging.example.com",
+            public_web_base_url="https://xcripto-staging.example.com",
+        )
+
+
+def test_deployed_environment_requires_public_web_base_url():
+    with pytest.raises(ValidationError, match="PUBLIC_WEB_BASE_URL is required"):
+        Settings(
+            environment="production",
+            auth_enabled=True,
+            api_key="prod-secret",
+            database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+            cors_allowed_origins="https://xcripto.com,https://admin.xcripto.com",
+        )
+
+
+def test_deployed_environment_rejects_localhost_public_web_base_url():
+    with pytest.raises(ValidationError, match="PUBLIC_WEB_BASE_URL must not use localhost"):
+        Settings(
+            environment="production",
+            auth_enabled=True,
+            api_key="prod-secret",
+            database_url="postgresql+asyncpg://xmip:xmip@db:5432/xmip",
+            cors_allowed_origins="https://xcripto.com,https://admin.xcripto.com",
+            public_web_base_url="http://localhost:3000",
         )
 
 

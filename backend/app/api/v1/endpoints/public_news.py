@@ -26,7 +26,7 @@ def _site_base_url(request: Request) -> str:
     settings = get_settings()
     forwarded_host = request.headers.get("x-forwarded-host")
     request_origin = f"{request.url.scheme}://{forwarded_host or request.url.netloc}"
-    return normalize_public_base_url(settings.public_site_url, request_origin)
+    return normalize_public_base_url(settings.public_web_base_url, request_origin)
 
 
 @router.get("/news", response_model=list[PublicNewsRead])

@@ -9,20 +9,21 @@ Development-only example:
 
 ```env
 VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_API_KEY=dev-secret
+VITE_API_KEY=
 VITE_ACTOR_ROLE=admin
+VITE_ACTOR_ID=local-admin
 ```
 
-Do not expose a production API key in a public browser app. The current API key
-auth is an MVP internal control. A future production frontend should use
-proper login plus JWT/OAuth/session auth.
+`VITE_*` values are browser-exposed. Never place a real production secret there.
+The current API key auth is an MVP internal control. A future production
+frontend should use proper login plus JWT/OAuth/session auth.
 
 ## Headers
 
 Recommended headers:
 
 ```text
-X-API-Key: development API key when AUTH_ENABLED=true
+X-API-Key: browser-exposed development key when AUTH_ENABLED=true
 X-Actor-Role: admin
 X-Actor-Id: optional user id
 X-Correlation-ID: generated per user action

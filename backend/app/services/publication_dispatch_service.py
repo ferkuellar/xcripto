@@ -27,7 +27,12 @@ from app.integrations.x_client import (
     publish_x_post,
 )
 from app.models import ContentPiece, NewsItem, PublicationRecord
-from app.services.public_news_service import resolve_canonical_slug, slugify
+from app.services.public_news_service import (
+    normalize_public_base_url,
+    public_news_url,
+    resolve_canonical_slug,
+    slugify,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +42,7 @@ BINANCE_SQUARE_CHANNEL = "BINANCE_SQUARE"
 BINANCE_SQUARE_CHANNEL_ALIASES = {BINANCE_SQUARE_CHANNEL, "Binance Square"}
 X_CHANNEL_ALIASES = {"X", "X / Twitter"}
 TELEGRAM_API_BASE_URL = "https://api.telegram.org"
+LOCAL_PUBLIC_BASE_URL = "http://localhost:3000"
 
 
 @dataclass(slots=True)
@@ -128,6 +134,15 @@ def _append_note(existing: str | None, note: str) -> str:
     if cleaned_existing and cleaned_note:
         return f"{cleaned_existing}\n{cleaned_note}"
     return cleaned_existing or cleaned_note
+
+
+def _public_news_base_url() -> str:
+    settings = get_settings()
+    return normalize_public_base_url(settings.public_web_base_url, LOCAL_PUBLIC_BASE_URL)
+
+
+def _public_news_canonical_url(slug: str) -> str:
+    return public_news_url(_public_news_base_url(), slug)
 
 
 async def _send_telegram_message(text: str) -> dict:
@@ -254,10 +269,7 @@ async def dispatch_publication_record(
                 record.news_item_id,
                 article_title,
             )
-            canonical_url = (
-                f"{(get_settings().public_site_url or 'https://localhost').rstrip('/')}/news/"
-                f"{slug}"
-            )
+            canonical_url = _public_news_canonical_url(slug)
             if dry_run:
                 logger.info(
                     "xcripto web publication dry-run",
@@ -351,10 +363,7 @@ async def dispatch_publication_record(
                 },
             )
             raise ConflictError("XCripto web publication failed") from exc
-    canonical_url = (
-        f"{(get_settings().public_site_url or 'https://localhost').rstrip('/')}/news/"
-        f"{slugify(content_piece.title or news_item.title)}"
-    )
+    canonical_url = _public_news_canonical_url(slugify(content_piece.title or news_item.title))
     if record.channel == TELEGRAM_CHANNEL:
         text = _telegram_message_text(news_item, content_piece, canonical_url)
         if dry_run:

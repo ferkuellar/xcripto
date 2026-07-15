@@ -89,7 +89,7 @@ if ($backendState.BackendPid -and (Test-BackendProcess -ProcessId $backendState.
     X_ACCESS_TOKEN                  = ''
     X_ACCESS_TOKEN_SECRET           = ''
     BINANCE_SQUARE_OPENAPI_KEY      = ''
-    PUBLIC_SITE_URL                 = 'http://localhost:3000'
+    PUBLIC_WEB_BASE_URL             = 'http://localhost:3000'
   }
 
   $backendPython = Join-Path $paths.BackendDir '.venv\Scripts\python.exe'

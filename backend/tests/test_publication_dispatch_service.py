@@ -108,7 +108,7 @@ async def test_telegram_dispatch_dry_run_returns_preview(client):
 
 async def test_published_telegram_record_gets_dispatched_and_is_idempotent(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
     monkeypatch.setattr(settings, "telegram_bot_token", "telegram-token")
     monkeypatch.setattr(settings, "telegram_channel_id", "@xcripto_news")
 
@@ -150,7 +150,7 @@ async def test_published_telegram_record_gets_dispatched_and_is_idempotent(clien
 
 async def test_telegram_dispatch_failure_marks_record_failed(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
     monkeypatch.setattr(settings, "telegram_bot_token", "telegram-token")
     monkeypatch.setattr(settings, "telegram_channel_id", "@xcripto_news")
 

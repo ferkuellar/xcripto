@@ -235,7 +235,7 @@ async def build_public_news_payload(
         or canonical_slug_from_url(publication_record.published_url)
         or slugify(item.title)
     )
-    canonical_url = publication_record.published_url or public_news_url(base_url, slug)
+    canonical_url = public_news_url(base_url, slug)
     content_piece = await latest_public_content_piece(session, item.id)
     title = content_piece.title if content_piece else item.title
     summary = content_piece.summary if content_piece else item.summary
@@ -292,7 +292,7 @@ async def build_public_article_payload(
         or canonical_slug_from_url(publication_record.published_url)
         or slugify(title)
     )
-    canonical_url = publication_record.published_url or public_news_url(base_url, slug)
+    canonical_url = public_news_url(base_url, slug)
     author = (
         publication_record.owner
         if publication_record and publication_record.owner

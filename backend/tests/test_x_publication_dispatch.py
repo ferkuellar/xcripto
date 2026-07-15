@@ -161,7 +161,9 @@ async def test_x_dispatch_dry_run_returns_preview(client):
     assert result.dry_run is True
     assert result.dispatched is False
     assert result.message
-    assert result.message.endswith("https://localhost/news/x-validation-bitcoin-etf-inflows-hit-new-record")
+    assert result.message.endswith(
+        "http://localhost:3000/news/x-validation-bitcoin-etf-inflows-hit-new-record"
+    )
     assert record.publication_status == "scheduled"
     assert record.external_id is None
     assert record.published_url is None
@@ -169,7 +171,7 @@ async def test_x_dispatch_dry_run_returns_preview(client):
 
 async def test_x_publication_success_and_idempotency(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
     monkeypatch.setattr(settings, "x_api_key", "consumer-key")
     monkeypatch.setattr(settings, "x_api_secret", "consumer-secret")
     monkeypatch.setattr(settings, "x_access_token", "access-token")
@@ -314,7 +316,7 @@ async def test_x_rate_limit_and_rejected_content_mark_failed(client, monkeypatch
 
 async def test_x_and_telegram_same_news_item_are_independent(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
     monkeypatch.setattr(settings, "telegram_bot_token", "telegram-token")
     monkeypatch.setattr(settings, "telegram_channel_id", "@xcripto_news")
     monkeypatch.setattr(settings, "x_api_key", "consumer-key")

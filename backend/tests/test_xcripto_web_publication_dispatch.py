@@ -98,7 +98,7 @@ async def _create_web_publication_chain(client, news_payload: dict) -> dict:
 
 async def test_xcripto_web_dry_run_returns_canonical_url(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
 
     chain = await _create_web_publication_chain(client, NEWS_PAYLOAD)
 
@@ -121,7 +121,7 @@ async def test_xcripto_web_dry_run_returns_canonical_url(client, monkeypatch):
 
 async def test_xcripto_web_dispatch_publishes_and_is_idempotent(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
 
     chain = await _create_web_publication_chain(client, NEWS_PAYLOAD)
     publication_id = chain["publication"]["id"]
@@ -152,7 +152,7 @@ async def test_xcripto_web_dispatch_publishes_and_is_idempotent(client, monkeypa
 
 async def test_xcripto_web_slug_collision_uses_deterministic_suffix(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
 
     first_chain = await _create_web_publication_chain(client, NEWS_PAYLOAD)
     second_chain = await _create_web_publication_chain(client, SECOND_NEWS_PAYLOAD)
@@ -178,7 +178,7 @@ async def test_xcripto_web_slug_collision_uses_deterministic_suffix(client, monk
 
 async def test_xcripto_web_failure_marks_record_failed_and_retry_succeeds(client, monkeypatch):
     settings = get_settings()
-    monkeypatch.setattr(settings, "public_site_url", "https://xcripto.test")
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.test")
 
     chain = await _create_web_publication_chain(client, NEWS_PAYLOAD)
 
@@ -209,4 +209,3 @@ async def test_xcripto_web_failure_marks_record_failed_and_retry_succeeds(client
     assert retry.idempotent is False
     assert record.publication_status == "published"
     assert record.published_url == "https://xcripto.test/news/bitcoin-etf-sees-record-inflows"
-

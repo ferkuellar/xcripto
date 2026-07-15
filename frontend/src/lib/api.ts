@@ -3,12 +3,11 @@
  *
  * Configuración por entorno:
  *   VITE_API_BASE_URL  — base del backend (default: http://127.0.0.1:8000)
- *   VITE_API_KEY       — opcional; se envía como X-API-Key en endpoints de
- *                        escritura cuando el backend corre con AUTH_ENABLED=true
- *   VITE_ACTOR_ROLE    — opcional; se envía como X-Actor-Role en escrituras. El
+ *   VITE_API_KEY       — browser-exposed; solo para control interno/admin
+ *   VITE_ACTOR_ROLE    — browser-exposed; se envía como X-Actor-Role en escrituras. El
  *                        RBAC del backend lo exige para operaciones permisionadas
  *                        (p. ej. intake.promote, readiness.calculate).
- *   VITE_ACTOR_ID      — opcional; se envía como X-Actor-Id en escrituras.
+ *   VITE_ACTOR_ID      — browser-exposed; se envía como X-Actor-Id en escrituras.
  */
 
 const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')

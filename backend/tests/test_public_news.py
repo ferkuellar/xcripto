@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from app.core.config import get_settings
+
 NEWS_PUBLIC_A = {
     "title": "Bitcoin ETF sees record inflows",
     "summary": "Institutional inflows into spot BTC ETFs reached a new daily record.",
@@ -149,6 +151,21 @@ async def test_public_news_detail_by_slug(client):
     assert body["body_format"] == "markdown"
     assert body["seo_title"] == body["title"]
     assert body["author"]
+
+
+async def test_public_news_uses_configured_public_base_url(client, monkeypatch):
+    created = await _create_canonical_publication(client, NEWS_PUBLIC_A)
+    settings = get_settings()
+    monkeypatch.setattr(settings, "public_web_base_url", "https://xcripto.com")
+
+    response = await client.get("/api/v1/public/news")
+
+    assert response.status_code == 200
+    body = response.json()
+    item = next(item for item in body if item["id"] == created["news"]["id"])
+    assert item["slug"] == "bitcoin-etf-sees-record-inflows"
+    assert item["canonical_url"] == "https://xcripto.com/news/bitcoin-etf-sees-record-inflows"
+    assert not item["canonical_url"].startswith("http://localhost")
 
 
 async def test_public_news_detail_rejects_drafts(client):

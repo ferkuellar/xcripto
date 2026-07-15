@@ -2,14 +2,15 @@ import json
 import os
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Tests set XMIP_DISABLE_DOTENV=1 so local dotenv files do not leak into the suite.
-# In normal local/dev runs, `.env.local` overrides `.env` so production placeholders
-# in `.env` do not block startup.
-_ENV_FILE = None if os.environ.get("XMIP_DISABLE_DOTENV") == "1" else (".env", ".env.local")
+# Normal local/dev runs load only `.env.local`; production values belong in the
+# deployment environment, not in a shared `.env` file.
+_ENV_FILE = None if os.environ.get("XMIP_DISABLE_DOTENV") == "1" else ".env.local"
 
 
 class Settings(BaseSettings):
@@ -47,9 +48,9 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     api_key: str | None = None
     api_key_header_name: str = "X-API-Key"
-    public_site_url: str | None = Field(
+    public_web_base_url: str | None = Field(
         default=None,
-        validation_alias=AliasChoices("APP_DOMAIN", "PUBLIC_SITE_URL"),
+        validation_alias=AliasChoices("PUBLIC_WEB_BASE_URL", "PUBLIC_SITE_URL", "APP_DOMAIN"),
     )
     telegram_bot_token: str | None = Field(
         default=None,
@@ -125,6 +126,14 @@ class Settings(BaseSettings):
     def cors_headers(self) -> list[str]:
         return _split_csv(self.cors_allowed_headers)
 
+    @property
+    def public_site_url(self) -> str | None:
+        return self.public_web_base_url
+
+    @public_site_url.setter
+    def public_site_url(self, value: str | None) -> None:
+        self.public_web_base_url = value
+
     @model_validator(mode="after")
     def validate_production_security(self) -> "Settings":
         if self.connector_auto_promote:
@@ -149,8 +158,23 @@ class Settings(BaseSettings):
                 errors.append("API_KEY must not use a development placeholder")
             if "*" in self.cors_origins:
                 errors.append("CORS wildcard is not allowed in deployed environments")
+            if any(_looks_like_local_origin(origin) for origin in self.cors_origins):
+                errors.append(
+                    "CORS_ALLOWED_ORIGINS must not use localhost in deployed environments"
+                )
             if self.database_url.startswith("sqlite"):
                 errors.append("DATABASE_URL must use PostgreSQL in deployed environments")
+            if not self.public_web_base_url:
+                errors.append("PUBLIC_WEB_BASE_URL is required in deployed environments")
+            else:
+                normalized_public_url = _normalize_public_base_url(self.public_web_base_url)
+                public_host = (urlsplit(normalized_public_url).hostname or "").lower()
+                if not normalized_public_url.startswith("https://"):
+                    errors.append("PUBLIC_WEB_BASE_URL must use https in deployed environments")
+                if _looks_like_local_host(public_host):
+                    errors.append(
+                        "PUBLIC_WEB_BASE_URL must not use localhost in deployed environments"
+                    )
         return errors
 
 
@@ -163,6 +187,27 @@ def _split_csv(value: str | list[str]) -> list[str]:
         if isinstance(parsed, list):
             return [str(item).strip() for item in parsed if str(item).strip()]
     return [item.strip() for item in value.split(",") if item.strip()]
+
+
+def _normalize_public_base_url(value: str) -> str:
+    raw = value.strip()
+    if "://" not in raw:
+        raw = f"https://{raw}"
+    parts = urlsplit(raw)
+    scheme = parts.scheme or "https"
+    netloc = parts.netloc or parts.path
+    return f"{scheme}://{netloc.rstrip('/')}"
+
+
+def _looks_like_local_host(hostname: str) -> bool:
+    host = hostname.strip().lower()
+    return host in {"localhost", "::1"} or host.startswith("127.") or host == "0.0.0.0"
+
+
+def _looks_like_local_origin(origin: str) -> bool:
+    parsed = urlsplit(origin)
+    host = (parsed.hostname or "").lower()
+    return _looks_like_local_host(host)
 
 
 @lru_cache
