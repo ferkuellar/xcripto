@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     auth_enabled: bool = False
     api_key: str | None = None
     api_key_header_name: str = "X-API-Key"
+    session_cookie_name: str = "xmip_session"
+    session_cookie_secure: bool = False
+    session_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
+    session_cookie_path: str = "/"
+    session_ttl_seconds: int = 60 * 60 * 12
     public_web_base_url: str | None = Field(
         default=None,
         validation_alias=AliasChoices("PUBLIC_WEB_BASE_URL", "PUBLIC_SITE_URL", "APP_DOMAIN"),
@@ -152,10 +157,12 @@ class Settings(BaseSettings):
                 errors.append("AUTO_CREATE_TABLES must be false in deployed environments")
             if not self.auth_enabled:
                 errors.append("AUTH_ENABLED must be true in deployed environments")
-            if not self.api_key:
-                errors.append("API_KEY is required in deployed environments")
-            elif self.api_key in {"dev-secret", "changeme", "change-me", "secret"}:
-                errors.append("API_KEY must not use a development placeholder")
+            if not self.cors_allow_credentials:
+                errors.append("CORS_ALLOW_CREDENTIALS must be true in deployed environments")
+            if not self.session_cookie_secure:
+                errors.append("SESSION_COOKIE_SECURE must be true in deployed environments")
+            if self.session_ttl_seconds <= 0:
+                errors.append("SESSION_TTL_SECONDS must be greater than zero")
             if "*" in self.cors_origins:
                 errors.append("CORS wildcard is not allowed in deployed environments")
             if any(_looks_like_local_origin(origin) for origin in self.cors_origins):

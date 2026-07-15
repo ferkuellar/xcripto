@@ -189,9 +189,6 @@ async def connectors_summary(session: SessionDep) -> AdminConnectorsSummary:
 @router.get("/frontend/config", response_model=FrontendConfig)
 async def frontend_config() -> FrontendConfig:
     settings = get_settings()
-    required_headers = ["X-Correlation-ID"]
-    if settings.auth_enabled:
-        required_headers.extend([settings.api_key_header_name, "X-Actor-Role"])
     return FrontendConfig(
         app_name=settings.app_name,
         app_version=settings.app_version,
@@ -199,7 +196,7 @@ async def frontend_config() -> FrontendConfig:
         auth_enabled=settings.auth_enabled,
         rbac_enabled=True,
         features=FrontendFeatureFlags(),
-        required_headers=required_headers,
+        required_headers=["X-Correlation-ID"],
     )
 
 

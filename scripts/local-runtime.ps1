@@ -46,6 +46,19 @@ function Write-LocalFileIfMissing {
   }
 }
 
+function Write-LocalFile {
+  param(
+    [Parameter(Mandatory)][string]$Path,
+    [Parameter(Mandatory)][string]$Content
+  )
+
+  $parent = Split-Path -Parent $Path
+  if ($parent) {
+    New-Item -ItemType Directory -Force -Path $parent | Out-Null
+  }
+  Set-Content -LiteralPath $Path -Value $Content -Encoding UTF8
+}
+
 function Initialize-LocalEnvFiles {
   param([Parameter(Mandatory)]$Paths)
 
@@ -59,13 +72,17 @@ API_KEY_HEADER_NAME=X-API-Key
 AUTO_CREATE_TABLES=false
 DATABASE_URL=sqlite+aiosqlite:///./xcripto-local.db
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-CORS_ALLOW_CREDENTIALS=false
+CORS_ALLOW_CREDENTIALS=true
 REQUEST_LOGGING_ENABLED=true
 REQUEST_BODY_LOGGING_ENABLED=false
 RESPONSE_BODY_LOGGING_ENABLED=false
 REQUEST_TIMEOUT_SECONDS=30
 OPERATIONAL_AUDIT_ENABLED=true
 DB_HEALTHCHECK_ENABLED=true
+SESSION_COOKIE_SECURE=false
+SESSION_COOKIE_SAMESITE=lax
+SESSION_COOKIE_NAME=xmip_session
+SESSION_TTL_SECONDS=43200
 CONNECTORS_ENABLED=false
 RSS_CONNECTOR_ENABLED=false
 CONNECTOR_RUN_MODE=manual
@@ -83,14 +100,11 @@ PUBLIC_WEB_BASE_URL=http://localhost:3000
 '@
 
   $frontendEnvContent = @'
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_API_KEY=dev-secret
-VITE_ACTOR_ROLE=admin
-VITE_ACTOR_ID=local-admin
+VITE_API_BASE_URL=http://localhost:8000
 '@
 
   Write-LocalFileIfMissing -Path $Paths.BackendEnv -Content $backendEnvContent
-  Write-LocalFileIfMissing -Path $Paths.FrontendEnv -Content $frontendEnvContent
+  Write-LocalFile -Path $Paths.FrontendEnv -Content $frontendEnvContent
 }
 
 function Get-ProcessCommandLine {

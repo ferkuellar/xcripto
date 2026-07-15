@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.constants import NEWS_PRIORITIES, NEWS_STATUSES
 from app.core.errors import ConflictError, DomainValidationError
-from app.core.security import require_api_key
+from app.core.security import require_permission
 from app.db.session import get_session
 from app.schemas.news import NewsCreate, NewsRead, NewsStatusUpdate
 from app.services import news_service, operational_audit_service
@@ -19,7 +19,7 @@ SessionDep = Annotated[AsyncSession, Depends(get_session)]
     "/intake",
     response_model=NewsRead,
     status_code=201,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("news.create"))],
 )
 async def intake_news(
     payload: NewsCreate,
@@ -91,7 +91,7 @@ async def get_news(news_id: str, session: SessionDep) -> NewsRead:
 @router.patch(
     "/{news_id}/status",
     response_model=NewsRead,
-    dependencies=[Depends(require_api_key)],
+    dependencies=[Depends(require_permission("news.update_status"))],
 )
 async def update_news_status(
     news_id: str,

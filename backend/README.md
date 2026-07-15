@@ -2235,25 +2235,19 @@ http://127.0.0.1:8000
 Variables Vite sugeridas para desarrollo interno:
 
 ```env
-VITE_API_BASE_URL=http://127.0.0.1:8000
-VITE_API_KEY=
-VITE_ACTOR_ROLE=admin
-VITE_ACTOR_ID=local-admin
+VITE_API_BASE_URL=http://localhost:8000
 ```
 
-Headers principales:
+Sesión administrativa:
 
 ```text
-X-API-Key
-X-Actor-Role
-X-Actor-Id
+cookie HttpOnly `xmip_session`
 X-Correlation-ID
 ```
 
-`VITE_*` siempre es browser-exposed. `VITE_API_KEY` solo es aceptable para
-desarrollo local o admin interno controlado. No debe exponerse una API key
-productiva a usuarios finales. La fase futura de auth debe reemplazar esto con
-login real y JWT/OAuth/sesiones.
+`VITE_*` siempre es browser-exposed. En producción no se usa para autoridad
+privilegiada. El panel administrativo usa login real con cookie HttpOnly y
+`credentials: include`.
 
 Endpoints frontend-safe:
 

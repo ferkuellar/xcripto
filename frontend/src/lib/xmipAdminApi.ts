@@ -1,10 +1,6 @@
 import type { ApiErrorPayload } from '@/types/xmip'
 
-// Browser-exposed runtime config; never place true secrets in VITE_* values.
-const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://127.0.0.1:8000').replace(/\/$/, '')
-const API_KEY: string | undefined = import.meta.env.VITE_API_KEY || undefined
-const ACTOR_ROLE: string | undefined = import.meta.env.VITE_ACTOR_ROLE || undefined
-const ACTOR_ID: string | undefined = import.meta.env.VITE_ACTOR_ID || undefined
+const BASE_URL = (import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8000').replace(/\/$/, '')
 const DEFAULT_TIMEOUT_MS = 12_000
 
 function correlationId() {
@@ -62,9 +58,6 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     'X-Correlation-ID': correlationId(),
   }
   if (options.body !== undefined) headers['Content-Type'] = 'application/json'
-  if (API_KEY) headers['X-API-Key'] = API_KEY
-  if (ACTOR_ROLE) headers['X-Actor-Role'] = ACTOR_ROLE
-  if (ACTOR_ID) headers['X-Actor-Id'] = ACTOR_ID
 
   let response: Response
   try {
@@ -72,6 +65,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
       method: options.method ?? 'GET',
       headers,
       body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+      credentials: 'include',
       signal: controller.signal,
     })
   } catch (cause) {
@@ -85,7 +79,9 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   clearTimeout(timeout)
 
   if (!response.ok) throw await parseError(response)
-  return (await response.json()) as T
+  const text = await response.text()
+  if (!text) return undefined as T
+  return JSON.parse(text) as T
 }
 
 export const xmipAdminApi = {

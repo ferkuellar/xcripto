@@ -51,8 +51,8 @@ export const adminApi = {
     xmipAdminApi.get<ConnectorsSummary>('/api/v1/admin/connectors/summary', signal),
   getAuditSummary: (signal?: AbortSignal) =>
     xmipAdminApi.get<AuditSummary>('/api/v1/admin/audit/summary', signal),
-  // Registro de auditoría operacional (RBAC: requiere X-API-Key + X-Actor-Role
-  // con permiso operational_audit.read). Distinto de los audit checks públicos.
+  // Registro de auditoría operacional (RBAC: requiere sesión HttpOnly con
+  // permiso operational_audit.read). Distinto de los audit checks públicos.
   getOperationalAuditEvents: (signal?: AbortSignal) =>
     xmipAdminApi.get<OperationalAuditEvent[]>('/api/v1/operational-audit/events?limit=25', signal),
 }

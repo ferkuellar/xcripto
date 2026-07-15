@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { Bell, Bot, Plus, Search } from 'lucide-react'
+import { Bell, Bot, LogIn, LogOut, Plus, Search, ShieldCheck } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { DemoTag } from '@/components/ui/async-state'
+import { useAuth } from '@/context/AuthContext'
 import { useBackendHealth } from '@/hooks/useApi'
 import { notifications } from '@/data/mock-news'
 
@@ -20,9 +21,10 @@ export function Topbar() {
   const [searchTerm, setSearchTerm] = useState('')
   const unread = notifications.filter((n) => n.unread).length
   const navigate = useNavigate()
+  const { status: authStatus, user, logout } = useAuth()
   const { status: backendStatus, info } = useBackendHealth()
 
-  function submitSearch(e: React.FormEvent) {
+  function submitSearch(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const term = searchTerm.trim()
     navigate(term ? `/news?q=${encodeURIComponent(term)}` : '/news')
@@ -61,6 +63,37 @@ export function Topbar() {
           <Bot className="h-3.5 w-3.5" />
           Agents
         </Button>
+
+        {authStatus === 'authenticated' && user ? (
+          <div className="flex min-w-0 items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-xs text-ink-secondary">
+            <ShieldCheck className="h-3.5 w-3.5 text-accent-green" />
+            <span className="max-w-40 truncate">
+              {user.display_name} · {user.role}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => {
+                void (async () => {
+                  try {
+                    await logout()
+                  } finally {
+                    navigate('/login')
+                  }
+                })()
+              }}
+            >
+              <LogOut className="h-3.5 w-3.5" />
+              Salir
+            </Button>
+          </div>
+        ) : (
+          <Button variant="secondary" size="sm" onClick={() => navigate('/login')}>
+            <LogIn className="h-3.5 w-3.5" />
+            Login
+          </Button>
+        )}
 
         {/* Notifications (demo — pendiente de endpoint de notificaciones) */}
         <div className="relative">

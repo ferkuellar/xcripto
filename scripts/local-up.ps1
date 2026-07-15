@@ -69,13 +69,17 @@ if ($backendState.BackendPid -and (Test-BackendProcess -ProcessId $backendState.
     AUTO_CREATE_TABLES              = 'false'
     DATABASE_URL                    = 'sqlite+aiosqlite:///./xcripto-local.db'
     CORS_ALLOWED_ORIGINS            = 'http://localhost:5173,http://127.0.0.1:5173'
-    CORS_ALLOW_CREDENTIALS          = 'false'
+    CORS_ALLOW_CREDENTIALS          = 'true'
     REQUEST_LOGGING_ENABLED         = 'true'
     REQUEST_BODY_LOGGING_ENABLED    = 'false'
     RESPONSE_BODY_LOGGING_ENABLED   = 'false'
     REQUEST_TIMEOUT_SECONDS         = '30'
     OPERATIONAL_AUDIT_ENABLED       = 'true'
     DB_HEALTHCHECK_ENABLED          = 'true'
+    SESSION_COOKIE_SECURE           = 'false'
+    SESSION_COOKIE_SAMESITE         = 'lax'
+    SESSION_COOKIE_NAME             = 'xmip_session'
+    SESSION_TTL_SECONDS             = '43200'
     CONNECTORS_ENABLED              = 'false'
     RSS_CONNECTOR_ENABLED           = 'false'
     CONNECTOR_RUN_MODE              = 'manual'
@@ -121,10 +125,7 @@ if ($frontendState.FrontendPid -and (Test-FrontendProcess -ProcessId $frontendSt
 } else {
   Remove-PidFile -Path $paths.FrontendPid
   $frontendEnv = @{
-    VITE_API_BASE_URL = 'http://127.0.0.1:8000'
-    VITE_API_KEY      = 'dev-secret'
-    VITE_ACTOR_ROLE   = 'admin'
-    VITE_ACTOR_ID     = 'local-admin'
+    VITE_API_BASE_URL = 'http://localhost:8000'
   }
 
   $npmExe = 'npm.cmd'

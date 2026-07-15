@@ -5,6 +5,7 @@ from fastapi import Request
 from sqlalchemy import Select, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.errors import NotFoundError
 from app.models import OperationalAuditLog
 from app.schemas.operational_audit import (
@@ -67,18 +68,36 @@ async def record_operational_event(
     metadata: dict[str, Any] | list[Any] | None = None,
     error_code: str | None = None,
     error_message: str | None = None,
+    actor_id: str | None = None,
+    actor_role: str | None = None,
+    actor_display: str | None = None,
+    actor_source: str | None = None,
 ) -> OperationalAuditLog:
-    actor_id = getattr(request.state, "actor_id", None) or request.headers.get("X-Actor-Id")
-    actor_role = getattr(request.state, "actor_role", None) or request.headers.get("X-Actor-Role")
-    actor_source = "header" if actor_id or actor_role else "system"
+    request_actor_id = getattr(request.state, "actor_id", None)
+    request_actor_role = getattr(request.state, "actor_role", None)
+    request_actor_source = getattr(request.state, "actor_source", None)
+    if actor_id is None:
+        actor_id = request_actor_id
+    if actor_role is None:
+        actor_role = request_actor_role
+    if actor_source is None:
+        actor_source = request_actor_source
+
+    settings = get_settings()
+    if actor_id is None and actor_role is None and not settings.is_deployed_environment:
+        actor_id = request.headers.get("X-Actor-Id")
+        actor_role = request.headers.get("X-Actor-Role")
+        actor_display = actor_display or request.headers.get("X-Actor-Display")
+        actor_source = actor_source or ("header" if actor_id or actor_role else "system")
+
     payload = OperationalAuditLogCreate(
         event_type=event_type,
         action=action,
         permission=permission,
         actor_id=actor_id,
         actor_role=actor_role or "system",
-        actor_display=request.headers.get("X-Actor-Display"),
-        actor_source=actor_source,
+        actor_display=actor_display or getattr(request.state, "actor_display", None),
+        actor_source=actor_source or "system",
         request_method=request.method,
         request_path=request.url.path,
         entity_type=entity_type,

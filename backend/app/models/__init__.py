@@ -1,6 +1,7 @@
 from app.models.agent_execution import AgentExecution
 from app.models.agent_output import AgentOutput
 from app.models.audit_check import AuditCheck
+from app.models.auth_session import AuthSession
 from app.models.content_piece import ContentPiece
 from app.models.distribution_plan import DistributionPlan
 from app.models.editorial_readiness_score import EditorialReadinessScore
@@ -27,6 +28,7 @@ from app.models.workflow_task import WorkflowTask
 __all__ = [
     "AgentExecution",
     "AgentOutput",
+    "AuthSession",
     "AuditCheck",
     "ContentPiece",
     "DistributionPlan",

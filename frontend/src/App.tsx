@@ -1,6 +1,7 @@
 import { lazy, Suspense } from 'react'
-import { HashRouter, Route, Routes } from 'react-router-dom'
+import { HashRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { AppShell } from '@/components/layout/AppShell'
+import { useAuth } from '@/context/AuthContext'
 
 // Code-splitting por ruta: cada página se carga bajo demanda para reducir
 // el bundle inicial (recharts y framer-motion solo se descargan donde se usan).
@@ -38,6 +39,7 @@ const SettingsPage = lazy(() =>
 const SocialClipsPage = lazy(() =>
   import('@/pages/SecondaryPages').then((m) => ({ default: m.SocialClipsPage })),
 )
+const LoginPage = lazy(() => import('@/pages/LoginPage'))
 
 function RouteFallback() {
   return (
@@ -53,171 +55,205 @@ function RouteFallback() {
   )
 }
 
+function RequireAuth() {
+  const { status } = useAuth()
+  const location = useLocation()
+
+  if (status === 'loading') {
+    return <RouteFallback />
+  }
+
+  if (status !== 'authenticated') {
+    const from = `${location.pathname}${location.search}`
+    return <Navigate to="/login" replace state={{ from }} />
+  }
+
+  return <Outlet />
+}
+
+function LoginFallback() {
+  return (
+    <div className="flex min-h-screen items-center justify-center p-4">
+      <div className="h-12 w-12 animate-pulse rounded-full bg-white/5" />
+    </div>
+  )
+}
+
 function App() {
   return (
     <HashRouter>
       <Routes>
-        <Route element={<AppShell />}>
-          <Route
-            path="/"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <CommandCenter />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/intake"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <NewsIntake />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/admin"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <AdminDashboardPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/admin/dashboard"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <AdminDashboardPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/news"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <NewsFeedPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/news/:id"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <NewsDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/sources"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <SourceValidation />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/impact"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <MarketImpactPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/risk"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <RiskReviewPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/editorial"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <EditorialDesk />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/scripts"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <ScriptsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/clips"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <SocialClipsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/distribution"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <DistributionPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/calendar"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <CalendarPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/metrics"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <MetricsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/agents"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <AgentsPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/graph"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <KnowledgeGraphPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/memory"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <MemoryPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/audit"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <AuditPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/settings"
-            element={
-              <Suspense fallback={<RouteFallback />}>
-                <SettingsPage />
-              </Suspense>
-            }
-          />
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={<LoginFallback />}>
+              <LoginPage />
+            </Suspense>
+          }
+        />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppShell />}>
+            <Route
+              path="/"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <CommandCenter />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/intake"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <NewsIntake />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <AdminDashboardPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/dashboard"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <AdminDashboardPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/news"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <NewsFeedPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/news/:id"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <NewsDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/sources"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <SourceValidation />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/impact"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <MarketImpactPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/risk"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <RiskReviewPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/editorial"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <EditorialDesk />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/scripts"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <ScriptsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/clips"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <SocialClipsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/distribution"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <DistributionPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/calendar"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <CalendarPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/metrics"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <MetricsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/agents"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <AgentsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/graph"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <KnowledgeGraphPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/memory"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <MemoryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/audit"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <AuditPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <Suspense fallback={<RouteFallback />}>
+                  <SettingsPage />
+                </Suspense>
+              }
+            />
+          </Route>
         </Route>
       </Routes>
     </HashRouter>
