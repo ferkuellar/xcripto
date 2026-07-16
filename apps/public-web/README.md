@@ -1,6 +1,6 @@
 # XCripto — Public Web (`apps/public-web`)
 
-Public news site for **xcripto.com**. Next.js (App Router) + Tailwind, **SSR** for SEO.
+Public news site for **xcripto.com.mx**. Next.js (App Router) + Tailwind, **SSR** for SEO.
 
 > Separate app from the XMIP admin console in `../../frontend` (do not mix). This app is
 > public-only and consumes the backend public API (`/api/v1/public/*`) with no auth.
@@ -36,8 +36,8 @@ GET /sitemap.xml                        # (el sitio también genera el suyo prop
 
 Ver `.env.example`:
 
-- `XCRIPTO_API_URL` — base del backend público (server-side). Default `http://localhost:8000`.
-- `NEXT_PUBLIC_SITE_URL` — base pública del sitio (metadataBase/sitemap). Default `http://localhost:3000`.
+- `XCRIPTO_API_URL` — base del backend público (server-side). Production: `https://api.xcripto.com.mx`.
+- `NEXT_PUBLIC_SITE_URL` — base pública del sitio (metadataBase/sitemap). Production: `https://xcripto.com.mx`.
 - `NEXT_PUBLIC_SITE_NAME` — marca. Default `XCripto`.
 
 ## Desarrollo

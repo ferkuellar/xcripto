@@ -82,7 +82,7 @@ Para una corrida production-like local, copia `.env.local.production.example` a
 `AUTH_ENABLED=true`, `API_KEY=dev-secret` y `DATABASE_URL=sqlite+aiosqlite:///./xmip_local_prod.db`.
 Para el contrato real de producción usa `.env.production.example` como plantilla:
 `ENVIRONMENT=production`, `DEBUG=false`, `DATABASE_URL=postgresql+asyncpg://...`,
-`PUBLIC_WEB_BASE_URL=https://xcripto.com`, `CORS_ALLOWED_ORIGINS=https://xcripto.com,https://admin.xcripto.com`.
+`PUBLIC_WEB_BASE_URL=https://xcripto.com.mx`, `CORS_ALLOWED_ORIGINS=https://xcripto.com.mx,https://www.xcripto.com.mx,https://admin.xcripto.com.mx`.
 Ver `docs/LOCAL_DOCKER_POSTGRES_E2E_REPORT.md` para el flujo E2E validado
 (Alembic, smoke tests, newsroom QA y persistencia).
 
@@ -138,7 +138,7 @@ Copia `.env.example` a `.env.local`. Variables principales:
 | `ENVIRONMENT`        | `development`                   | `development` / `staging` / `production` / `test`; `APP_ENV` también se acepta como alias |
 | `DEBUG`              | `false`                         | Evita exponer internals en producción                                                     |
 | `CORS_ALLOWED_ORIGINS` | `http://localhost:3000,http://localhost:5173` | Orígenes frontend/admin permitidos                                          |
-| `PUBLIC_WEB_BASE_URL` | `http://localhost:3000`        | Base canónica del sitio público; en producción debe ser `https://xcripto.com`             |
+| `PUBLIC_WEB_BASE_URL` | `http://localhost:3000`        | Base canónica del sitio público; en producción debe ser `https://xcripto.com.mx`           |
 | `CORS_ALLOW_CREDENTIALS` | `false`                    | Credenciales CORS                                                                         |
 | `CORS_ALLOWED_METHODS` | `GET,POST,PATCH,PUT,DELETE,OPTIONS` | Métodos CORS permitidos                                                           |
 | `CORS_ALLOWED_HEADERS` | `Authorization,Content-Type,X-API-Key,X-Correlation-ID,X-Actor-Id,X-Actor-Role,X-Actor-Display` | Headers CORS |
@@ -164,7 +164,7 @@ DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/xmip
 AUTH_ENABLED=true
 API_KEY=<secret-from-secret-manager>
 CORS_ALLOWED_ORIGINS=https://admin.xcripto.example
-PUBLIC_WEB_BASE_URL=https://xcripto.example
+PUBLIC_WEB_BASE_URL=https://xcripto.com.mx
 ```
 
 ## Autorización mínima

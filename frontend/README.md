@@ -53,7 +53,7 @@ La identidad administrativa ya no depende de `VITE_API_KEY`, `VITE_ACTOR_ROLE`
 ni `VITE_ACTOR_ID`.
 
 La plantilla de producción vive en `.env.production.example` y apunta al backend
-`https://api.xcripto.com`. El panel público y el dashboard deben mantener secretos
+`https://api.xcripto.com.mx`. El panel público y el dashboard deben mantener secretos
 servidor-side fuera del bundle.
 
 ### Endpoints admin consumidos
