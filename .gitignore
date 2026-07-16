@@ -8,6 +8,8 @@ __pycache__/
 .env.*
 !.env.example
 !.env.local.production.example
+!backend/.env.production.example
+!frontend/.env.production.example
 !.env.vps.example
 *.pyc
 *.pyo
@@ -23,6 +25,7 @@ htmlcov/
 *.db
 .idea/
 .vscode/
+runtime/
 
 # Local Claude/agent workspace
 .claude/

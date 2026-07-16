@@ -138,3 +138,24 @@ La memoria no es fuente factual.
 Un agente no publica directamente.
 Un output de agente no es fuente.
 ```
+
+---
+
+## 10. Runtime local
+
+Para operar el stack local de noticias:
+
+```powershell
+.\scripts\local-up.ps1
+.\scripts\local-status.ps1
+.\scripts\local-smoke.ps1
+.\scripts\local-down.ps1
+```
+
+URLs locales:
+
+- Dashboard: `http://localhost:5173`
+- Backend: `http://127.0.0.1:8000`
+
+El runtime local usa SQLite y archivos `.env.local` gitignored para evitar que
+los placeholders de `.env` bloqueen el arranque diario.

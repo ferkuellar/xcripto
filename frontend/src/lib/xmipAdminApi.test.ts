@@ -7,12 +7,15 @@ interface FakeResponseInit {
   correlationId?: string | null
 }
 
-function fakeResponse({ ok, status, body = {}, correlationId = null }: FakeResponseInit): Response {
+function fakeResponse({ ok, status, body, correlationId = null }: FakeResponseInit): Response {
+  const responseBody = body === undefined && status === 204 ? undefined : body
+  const text = async () => (responseBody === undefined ? '' : JSON.stringify(responseBody))
   return {
     ok,
     status,
     headers: { get: (key: string) => (key === 'X-Correlation-ID' ? correlationId : null) },
-    json: async () => body,
+    json: async () => responseBody,
+    text,
   } as unknown as Response
 }
 
@@ -28,9 +31,6 @@ describe('xmipAdminApi request headers', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_API_BASE_URL', 'http://backend.test')
-    vi.stubEnv('VITE_API_KEY', 'super-secret-key')
-    vi.stubEnv('VITE_ACTOR_ROLE', 'admin')
-    vi.stubEnv('VITE_ACTOR_ID', 'local-admin')
   })
 
   afterEach(() => {
@@ -38,7 +38,7 @@ describe('xmipAdminApi request headers', () => {
     vi.unstubAllGlobals()
   })
 
-  it('sends X-API-Key, X-Actor-Role, X-Actor-Id and a correlation id from env', async () => {
+  it('sends a correlation id and includes browser credentials', async () => {
     const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ ok: true, status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -49,16 +49,11 @@ describe('xmipAdminApi request headers', () => {
     const [url, init] = fetchMock.mock.calls[0]
     expect(url).toBe('http://backend.test/api/v1/admin/dashboard/overview')
     const headers = (init as { headers: Record<string, string> }).headers
-    expect(headers['X-API-Key']).toBe('super-secret-key')
-    expect(headers['X-Actor-Role']).toBe('admin')
-    expect(headers['X-Actor-Id']).toBe('local-admin')
     expect(headers['X-Correlation-ID']).toBeTruthy()
+    expect((init as { credentials: string }).credentials).toBe('include')
   })
 
-  it('omits auth/actor headers when env vars are empty', async () => {
-    vi.stubEnv('VITE_API_KEY', '')
-    vi.stubEnv('VITE_ACTOR_ROLE', '')
-    vi.stubEnv('VITE_ACTOR_ID', '')
+  it('omits auth headers entirely', async () => {
     const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ ok: true, status: 200 }))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -70,13 +65,20 @@ describe('xmipAdminApi request headers', () => {
     expect(headers['X-Actor-Role']).toBeUndefined()
     expect(headers['X-Actor-Id']).toBeUndefined()
   })
+
+  it('handles 204 no-content responses without parsing errors', async () => {
+    const fetchMock = vi.fn().mockResolvedValue(fakeResponse({ ok: true, status: 204, body: undefined }))
+    vi.stubGlobal('fetch', fetchMock)
+
+    const { xmipAdminApi } = await loadApi()
+    await expect(xmipAdminApi.post('/api/v1/auth/logout')).resolves.toBeUndefined()
+  })
 })
 
 describe('xmipAdminApi error handling', () => {
   beforeEach(() => {
     vi.resetModules()
     vi.stubEnv('VITE_API_BASE_URL', 'http://backend.test')
-    vi.stubEnv('VITE_API_KEY', 'super-secret-key')
   })
 
   afterEach(() => {
@@ -118,7 +120,7 @@ describe('xmipAdminApi error handling', () => {
     expect(error.message).toBe('Rol sin permiso')
   })
 
-  it('maps backend offline (fetch reject) to a network error without leaking the API key', async () => {
+  it('maps backend offline (fetch reject) to a network error without leaking secrets', async () => {
     const fetchMock = vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -127,7 +129,6 @@ describe('xmipAdminApi error handling', () => {
 
     expect(error.status).toBe(0)
     expect(error.isNetworkError).toBe(true)
-    expect(error.message).not.toContain('super-secret-key')
     expect(error.message).toContain('backend.test')
   })
 })

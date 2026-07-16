@@ -1,16 +1,31 @@
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.constants import XCRIPTO_WEB_CHANNEL
 from app.core.errors import ConflictError, DomainValidationError, NotFoundError
 from app.models import ContentPiece, DistributionPlan, PublicationRecord
 from app.schemas.publication_record import PublicationRecordCreate
+from app.services.publication_dispatch_service import (
+    BINANCE_SQUARE_CHANNEL_ALIASES,
+    X_CHANNEL_ALIASES,
+    _latest_publication_for_channel,
+    dispatch_publication_record,
+)
 
 
 def _validate_published_reference(
     publication_status: str,
+    channel: str,
     published_url: str | None,
     external_id: str | None,
 ) -> None:
+    if publication_status == "published" and channel in (
+        {"Telegram"}
+        | {XCRIPTO_WEB_CHANNEL}
+        | X_CHANNEL_ALIASES
+        | BINANCE_SQUARE_CHANNEL_ALIASES
+    ):
+        return
     if publication_status == "published" and not (published_url or external_id):
         raise DomainValidationError(
             "PublicationRecord with published status requires published_url or external_id"
@@ -22,6 +37,14 @@ async def create_publication_record(
     payload: PublicationRecordCreate,
     correlation_id: str | None = None,
 ) -> PublicationRecord:
+    existing = await _latest_publication_for_channel(
+        session,
+        payload.news_item_id,
+        payload.channel,
+    )
+    if existing is not None and existing.publication_status == "published":
+        return existing
+
     content_piece = await session.get(ContentPiece, payload.content_piece_id)
     if content_piece is None:
         raise NotFoundError("Content piece")
@@ -46,6 +69,7 @@ async def create_publication_record(
 
     _validate_published_reference(
         payload.publication_status,
+        payload.channel,
         payload.published_url,
         payload.external_id,
     )
@@ -55,6 +79,8 @@ async def create_publication_record(
         record.correlation_id = correlation_id
     session.add(record)
     await session.commit()
+    await session.refresh(record)
+    await dispatch_publication_record(session, record.id)
     await session.refresh(record)
     return record
 
@@ -92,8 +118,15 @@ async def update_publication_record_status(
     publication_status: str,
 ) -> PublicationRecord:
     record = await get_publication_record(session, publication_record_id)
-    _validate_published_reference(publication_status, record.published_url, record.external_id)
+    _validate_published_reference(
+        publication_status,
+        record.channel,
+        record.published_url,
+        record.external_id,
+    )
     record.publication_status = publication_status
     await session.commit()
+    await session.refresh(record)
+    await dispatch_publication_record(session, record.id)
     await session.refresh(record)
     return record

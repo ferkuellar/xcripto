@@ -110,14 +110,20 @@ DISTRIBUTION_CHANNELS = {
     "YouTube Shorts",
     "TikTok",
     "Instagram Reels",
+    "X",
     "X / Twitter",
     "LinkedIn",
     "Newsletter",
     "Blog / Web",
     "Telegram",
+    "BINANCE_SQUARE",
+    "Binance Square",
     "Discord",
     "internal",
 }
+
+XCRIPTO_WEB_CHANNEL = "XCRIPTO_WEB"
+DISTRIBUTION_CHANNELS = DISTRIBUTION_CHANNELS | {XCRIPTO_WEB_CHANNEL}
 DISTRIBUTION_TYPES = {
     "primary_publication",
     "secondary_distribution",

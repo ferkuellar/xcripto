@@ -127,9 +127,8 @@ export default function AuditPage() {
 
 /**
  * Registro de auditoría operacional. A diferencia de los Audit Checks (editorial,
- * público), este endpoint está protegido por RBAC: exige X-API-Key + X-Actor-Role
- * con permiso operational_audit.read. Se consume por el cliente admin, que ya
- * adjunta esos headers desde el entorno.
+ * público), este endpoint está protegido por RBAC: exige sesión HttpOnly con
+ * permiso operational_audit.read. Se consume por el cliente admin autenticado.
  */
 function OperationalAuditSection() {
   const query = useXmipAdminQuery(
@@ -142,7 +141,7 @@ function OperationalAuditSection() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <SectionHeader
           title="Operational Audit"
-          subtitle="Registro RBAC de eventos operativos · GET /api/v1/operational-audit/events (X-API-Key + X-Actor-Role)"
+          subtitle="Registro RBAC de eventos operativos · GET /api/v1/operational-audit/events (sesión HttpOnly)"
         />
         <div className="flex items-center gap-2">
           <Badge variant="cyan">
@@ -229,9 +228,9 @@ function OperationalAuditError({
   const isAuth = error.status === 401 || error.status === 403
   const label =
     error.status === 401
-      ? 'API key requerida'
+      ? 'Sesión requerida'
       : error.status === 403
-        ? 'Rol sin permiso operational_audit.read'
+        ? 'Acceso sin permiso operational_audit.read'
         : error.isNetworkError
           ? 'Backend no disponible'
           : 'Error del backend'
@@ -246,7 +245,7 @@ function OperationalAuditError({
         <p className="text-sm font-medium text-ink">{label}</p>
         <p className="mx-auto mt-1 max-w-md text-xs text-ink-secondary">
           {isAuth
-            ? 'Este registro está protegido. Configura VITE_API_KEY y un VITE_ACTOR_ROLE con permiso operational_audit.read (p. ej. system).'
+            ? 'Este registro está protegido. Inicia sesión con una cuenta autorizada para ver el detalle operacional.'
             : error.message}
         </p>
         {error.correlationId && (

@@ -129,7 +129,7 @@ function AdminStatCard({
 function AdminErrorState({ error, onRetry }: { error: XmipAdminApiError; onRetry: () => void }) {
   const label =
     error.status === 401
-      ? 'API key requerida'
+      ? 'Sesión requerida'
       : error.status === 403
         ? 'Rol sin permiso'
         : error.status === 503
@@ -724,7 +724,7 @@ export default function AdminDashboardPage() {
             <Server className="h-4 w-4 text-accent-cyan" />
             <span>Base URL desde VITE_API_BASE_URL</span>
             <Users className="h-4 w-4 text-accent-purple" />
-            <span>Actor role desde VITE_ACTOR_ROLE</span>
+            <span>Sesión HttpOnly emitida por el backend</span>
           </CardContent>
         </Card>
       </section>

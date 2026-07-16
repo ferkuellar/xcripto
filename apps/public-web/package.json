@@ -2,7 +2,7 @@
   "name": "xcripto-public-web",
   "version": "0.1.0",
   "private": true,
-  "description": "XCripto public news site (xcripto.com) — SSR/SEO. Separate from the XMIP admin console in ../../frontend.",
+  "description": "XCripto public news site (xcripto.com.mx) — SSR/SEO. Separate from the XMIP admin console in ../../frontend.",
   "scripts": {
     "dev": "next dev -p 3000",
     "build": "next build",

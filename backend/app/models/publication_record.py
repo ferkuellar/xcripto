@@ -24,6 +24,7 @@ class PublicationRecord(UuidPrimaryKeyMixin, TimestampMixin, Base):
     )
     published_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     external_id: Mapped[str | None] = mapped_column(String(180), nullable=True)
+    canonical_slug: Mapped[str | None] = mapped_column(String(280), nullable=True, index=True)
     published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     owner: Mapped[str | None] = mapped_column(String(120), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)

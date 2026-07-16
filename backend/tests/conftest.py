@@ -8,7 +8,7 @@ os.environ["DATABASE_URL"] = "sqlite+aiosqlite:///:memory:"
 os.environ["ENVIRONMENT"] = "test"
 os.environ["AUTO_CREATE_TABLES"] = "false"
 
-import pytest
+import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
 
 from app.db.base import Base
@@ -16,7 +16,7 @@ from app.db.session import engine
 from app.main import app
 
 
-@pytest.fixture(autouse=True)
+@pytest_asyncio.fixture(autouse=True)
 async def clean_database():
     async with engine.begin() as connection:
         await connection.run_sync(Base.metadata.create_all)
@@ -25,7 +25,7 @@ async def clean_database():
         await connection.run_sync(Base.metadata.drop_all)
 
 
-@pytest.fixture
+@pytest_asyncio.fixture
 async def client():
     transport = ASGITransport(app=app)
     async with AsyncClient(transport=transport, base_url="http://test") as async_client:

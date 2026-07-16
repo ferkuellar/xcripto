@@ -6,6 +6,7 @@ from app.api.v1.endpoints import (
     agent_outputs,
     agent_runner,
     audit_checks,
+    auth,
     connectors,
     content_pieces,
     distribution_plans,
@@ -28,6 +29,7 @@ from app.api.v1.endpoints import (
 )
 
 api_router = APIRouter()
+api_router.include_router(auth.router)
 api_router.include_router(admin_dashboard.router)
 api_router.include_router(agent_runner.router)
 api_router.include_router(connectors.router)

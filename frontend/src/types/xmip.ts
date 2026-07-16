@@ -4,6 +4,33 @@ export interface ApiErrorPayload {
   correlationId: string | null
 }
 
+export interface AuthUser {
+  id: string
+  email: string | null
+  display_name: string
+  handle: string | null
+  role: string
+  roles: string[]
+  is_active: boolean
+  last_login_at: string | null
+}
+
+export interface AuthSessionInfo {
+  session_expires_at: string
+  authenticated: boolean
+}
+
+export interface AuthLoginResponse {
+  user: AuthUser
+  session: AuthSessionInfo
+}
+
+export interface AuthMeResponse {
+  authenticated: boolean
+  user: AuthUser
+  session: AuthSessionInfo
+}
+
 export interface ReadyResponse {
   status: 'ready' | 'not_ready' | string
   service: string
