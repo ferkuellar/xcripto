@@ -111,19 +111,32 @@ jobs:
     # CI-safe, throwaway values only (never real secrets). Docker Compose reads these
     # from the environment for ${VAR} interpolation in docker-compose.vps.yml.
     env:
-      APP_DOMAIN: localhost
-      API_DOMAIN: localhost
+      APP_DOMAIN: ci.xcripto.example
+      API_DOMAIN: api.ci.xcripto.example
       ACME_EMAIL: test@example.com
+
       POSTGRES_USER: xmip
       POSTGRES_PASSWORD: ci-password
       POSTGRES_DB: xmip
+
       API_KEY: test-ci-key
       VITE_API_KEY: test-ci-key
+
       ENVIRONMENT: staging
       APP_ENV: staging
       DEBUG: "false"
       AUTO_CREATE_TABLES: "false"
-      CORS_ALLOWED_ORIGINS: http://localhost:5173
+      AUTH_ENABLED: "true"
+
+      PUBLIC_WEB_BASE_URL: https://ci.xcripto.example
+      CORS_ALLOWED_ORIGINS: https://admin.ci.xcripto.example
+      CORS_ALLOW_CREDENTIALS: "true"
+
+      SESSION_COOKIE_NAME: xmip_session
+      SESSION_COOKIE_SECURE: "true"
+      SESSION_COOKIE_SAMESITE: lax
+      SESSION_TTL_SECONDS: "43200"
+
       CONNECTORS_ENABLED: "false"
       RSS_CONNECTOR_ENABLED: "false"
       CONNECTOR_AUTO_PROMOTE: "false"

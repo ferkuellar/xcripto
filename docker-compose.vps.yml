@@ -27,20 +27,37 @@ services:
       context: ./backend
     command: sh -c "alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port 8000"
     environment:
-      ENVIRONMENT: staging
-      DEBUG: "false"
+      ENVIRONMENT: "${ENVIRONMENT:-staging}"
+      APP_ENV: "${APP_ENV:-staging}"
+      DEBUG: "${DEBUG:-false}"
       APP_VERSION: 0.1.0-rc1
-      AUTO_CREATE_TABLES: "false"
-      AUTH_ENABLED: "true"
-      API_KEY: ${API_KEY:?set API_KEY in .env.vps}
+
+      AUTO_CREATE_TABLES: "${AUTO_CREATE_TABLES:-false}"
+
+      AUTH_ENABLED: "${AUTH_ENABLED:-true}"
+      API_KEY: ${API_KEY:?API_KEY is required}
       API_KEY_HEADER_NAME: X-API-Key
-      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xmip}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-xmip}
-      CORS_ALLOWED_ORIGINS: https://${APP_DOMAIN}
-      CORS_ALLOW_CREDENTIALS: "false"
-      CORS_ALLOWED_METHODS: GET,POST,PATCH,DELETE,OPTIONS
-      CORS_ALLOWED_HEADERS: Content-Type,X-API-Key,X-Actor-Role,X-Actor-Id,X-Correlation-ID
-      OPERATIONAL_AUDIT_ENABLED: "true"
-      DB_HEALTHCHECK_ENABLED: "true"
+
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-xmip}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/${POSTGRES_DB:-xmip}
+
+      PUBLIC_WEB_BASE_URL: ${PUBLIC_WEB_BASE_URL:?PUBLIC_WEB_BASE_URL is required}
+
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS:?CORS_ALLOWED_ORIGINS is required}
+      CORS_ALLOW_CREDENTIALS: "${CORS_ALLOW_CREDENTIALS:-true}"
+      CORS_ALLOWED_METHODS: GET,POST,PATCH,PUT,DELETE,OPTIONS
+      CORS_ALLOWED_HEADERS: Authorization,Content-Type,X-API-Key,X-Correlation-ID,X-Actor-Id,X-Actor-Role,X-Actor-Display
+
+      SESSION_COOKIE_NAME: "${SESSION_COOKIE_NAME:-xmip_session}"
+      SESSION_COOKIE_SECURE: "${SESSION_COOKIE_SECURE:-true}"
+      SESSION_COOKIE_SAMESITE: "${SESSION_COOKIE_SAMESITE:-lax}"
+      SESSION_TTL_SECONDS: "${SESSION_TTL_SECONDS:-43200}"
+
+      CONNECTORS_ENABLED: "${CONNECTORS_ENABLED:-false}"
+      RSS_CONNECTOR_ENABLED: "${RSS_CONNECTOR_ENABLED:-false}"
+      CONNECTOR_AUTO_PROMOTE: "${CONNECTOR_AUTO_PROMOTE:-false}"
+
+      OPERATIONAL_AUDIT_ENABLED: "${OPERATIONAL_AUDIT_ENABLED:-true}"
+      DB_HEALTHCHECK_ENABLED: "${DB_HEALTHCHECK_ENABLED:-true}"
     depends_on:
       postgres:
         condition: service_healthy
