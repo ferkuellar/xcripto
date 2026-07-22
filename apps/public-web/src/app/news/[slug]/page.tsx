@@ -74,9 +74,16 @@ export default async function ArticlePage({ params }: { params: { slug: string }
         </div>
       </div>
 
-      <div className="mx-auto mt-6 max-w-content">
-        <CoverImage src={article.cover_image_url} category={article.category} title={article.title} size="hero" />
-      </div>
+      {article.cover_image_url ? (
+        <div className="mx-auto mt-6 max-w-content">
+          <CoverImage
+            src={article.cover_image_url}
+            category={article.category}
+            title={article.title}
+            size="hero"
+          />
+        </div>
+      ) : null}
 
       <div className="mx-auto mt-8 max-w-prose">
         <ArticleBody article={article} />
