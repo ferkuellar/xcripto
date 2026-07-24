@@ -1,8 +1,6 @@
 import { categoryTone } from "@/lib/tone";
 
-// og_image / cover_image_url are null in the current backend contract, so we
-// render a branded editorial placeholder keyed on the category instead of a
-// broken image. When the backend starts returning a cover, we use it.
+// Render a branded editorial placeholder when a story has no cover image URL.
 export function CoverImage({
   src,
   category,

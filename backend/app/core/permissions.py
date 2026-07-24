@@ -3,6 +3,7 @@ from app.core.constants import USER_ROLES
 PERMISSIONS = {
     "news.create",
     "news.update_status",
+    "news.update_media",
     "source.create",
     "verification.create",
     "risk.create",
@@ -50,6 +51,7 @@ PERMISSIONS = {
 
 EDITORIAL_APPROVAL_PERMISSIONS = {
     "news.update_status",
+    "news.update_media",
     "audit.create",
     "publication.create",
     "publication.update_status",
@@ -67,6 +69,7 @@ EDITORIAL_APPROVAL_PERMISSIONS = {
 EDITOR_PERMISSIONS = {
     "news.create",
     "news.update_status",
+    "news.update_media",
     "verification.create",
     "content.create",
     "content.update_status",

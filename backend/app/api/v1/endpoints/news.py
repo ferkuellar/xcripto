@@ -8,7 +8,7 @@ from app.core.constants import NEWS_PRIORITIES, NEWS_STATUSES
 from app.core.errors import ConflictError, DomainValidationError
 from app.core.security import require_permission
 from app.db.session import get_session
-from app.schemas.news import NewsCreate, NewsRead, NewsStatusUpdate
+from app.schemas.news import NewsCoverImageUpdate, NewsCreate, NewsRead, NewsStatusUpdate
 from app.services import news_service, operational_audit_service
 
 router = APIRouter(prefix="/news", tags=["news"])
@@ -89,6 +89,42 @@ async def get_news(news_id: str, session: SessionDep) -> NewsRead:
 
 
 @router.patch(
+    "/{news_id}/cover-image",
+    response_model=NewsRead,
+    dependencies=[Depends(require_permission("news.update_media"))],
+)
+async def update_news_cover_image(
+    news_id: str,
+    payload: NewsCoverImageUpdate,
+    request: Request,
+    session: SessionDep,
+) -> NewsRead:
+    current = await news_service.get_news_item(session, news_id)
+    previous_cover_image_url = current.cover_image_url
+    item = await news_service.update_news_cover_image(session, news_id, payload.cover_image_url)
+    await operational_audit_service.record_operational_event(
+        session,
+        request,
+        event_type="news_event",
+        action="news.cover_image.update",
+        permission="news.update_media",
+        decision="updated",
+        outcome="succeeded",
+        entity_type="NewsItem",
+        entity_id=item.id,
+        news_item_id=item.id,
+        before_state={"cover_image_url": previous_cover_image_url},
+        after_state={"cover_image_url": item.cover_image_url},
+        metadata={
+            "operation": _cover_image_operation(
+                previous_cover_image_url, item.cover_image_url
+            )
+        },
+    )
+    return NewsRead.model_validate(item)
+
+
+@router.patch(
     "/{news_id}/status",
     response_model=NewsRead,
     dependencies=[Depends(require_permission("news.update_status"))],
@@ -143,3 +179,13 @@ async def update_news_status(
         metadata={"previous_status": previous_status, "new_status": item.status},
     )
     return NewsRead.model_validate(item)
+
+
+def _cover_image_operation(previous: str | None, current: str | None) -> str:
+    if previous == current:
+        return "unchanged"
+    if previous is not None and current is None:
+        return "clear"
+    if previous is None and current is not None:
+        return "set"
+    return "replace"

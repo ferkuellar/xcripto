@@ -153,6 +153,49 @@ async def test_public_news_detail_by_slug(client):
     assert body["author"]
 
 
+async def test_public_news_exposes_cover_image_as_og_image(client):
+    created = await _create_canonical_publication(client, NEWS_PUBLIC_A)
+    cover_url = "https://cdn.example.com/xcripto/bitcoin-cover.png"
+
+    update = await client.patch(
+        f"/api/v1/news/{created['news']['id']}/cover-image",
+        json={"cover_image_url": cover_url},
+    )
+    assert update.status_code == 200
+
+    listing = await client.get("/api/v1/public/news")
+    assert listing.status_code == 200
+    listing_item = next(
+        item for item in listing.json() if item["id"] == created["news"]["id"]
+    )
+    assert listing_item["cover_image_url"] == cover_url
+    assert listing_item["og_image"] == cover_url
+
+    detail = await client.get("/api/v1/public/news/bitcoin-etf-sees-record-inflows")
+    assert detail.status_code == 200
+    assert detail.json()["cover_image_url"] == cover_url
+    assert detail.json()["og_image"] == cover_url
+
+    clear = await client.patch(
+        f"/api/v1/news/{created['news']['id']}/cover-image",
+        json={"cover_image_url": None},
+    )
+    assert clear.status_code == 200
+
+    listing_after_clear = await client.get("/api/v1/public/news")
+    assert listing_after_clear.status_code == 200
+    cleared_listing_item = next(
+        item for item in listing_after_clear.json() if item["id"] == created["news"]["id"]
+    )
+    assert cleared_listing_item["cover_image_url"] is None
+    assert cleared_listing_item["og_image"] is None
+
+    detail_after_clear = await client.get("/api/v1/public/news/bitcoin-etf-sees-record-inflows")
+    assert detail_after_clear.status_code == 200
+    assert detail_after_clear.json()["cover_image_url"] is None
+    assert detail_after_clear.json()["og_image"] is None
+
+
 async def test_public_news_uses_configured_public_base_url(client, monkeypatch):
     created = await _create_canonical_publication(client, NEWS_PUBLIC_A)
     settings = get_settings()

@@ -1,3 +1,5 @@
+import pytest
+
 NEWS_PAYLOAD = {
     "title": "Bitcoin ETF sees record inflows",
     "summary": "Institutional inflows into spot BTC ETFs reached a new daily record.",
@@ -16,6 +18,7 @@ async def test_intake_news(client):
     assert body["title"] == NEWS_PAYLOAD["title"]
     assert body["status"] == "detected"
     assert body["priority"] == "P1"
+    assert body["cover_image_url"] is None
     assert body["id"]
     assert body["correlation_id"]  # filled from middleware when not provided
 
@@ -136,6 +139,108 @@ async def test_update_news_status_rejects_unknown_status(client):
     )
 
     assert response.status_code == 422
+
+
+async def _audit_events(client, news_id: str):
+    response = await client.get(
+        "/api/v1/operational-audit/events",
+        params={"news_item_id": news_id, "action": "news.cover_image.update"},
+    )
+    assert response.status_code == 200
+    return response.json()
+
+
+async def test_update_news_cover_image_lifecycle_persists_and_audits(client):
+    created = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+    first_url = "https://cdn.example.com/news/bitcoin-cover.png"
+    second_url = "https://media.example.com/news/bitcoin-cover-v2.webp"
+
+    set_response = await client.patch(
+        f"/api/v1/news/{created['id']}/cover-image",
+        json={"cover_image_url": f"  {first_url}  "},
+    )
+
+    assert set_response.status_code == 200
+    assert set_response.json()["cover_image_url"] == first_url
+
+    get_response = await client.get(f"/api/v1/news/{created['id']}")
+    list_response = await client.get("/api/v1/news")
+    assert get_response.status_code == 200
+    assert get_response.json()["cover_image_url"] == first_url
+    assert list_response.status_code == 200
+    assert list_response.json()[0]["cover_image_url"] == first_url
+
+    events = await _audit_events(client, created["id"])
+    assert len(events) == 1
+    assert events[0]["event_type"] == "news_event"
+    assert events[0]["decision"] == "updated"
+    assert events[0]["outcome"] == "succeeded"
+    assert events[0]["entity_type"] == "NewsItem"
+    assert events[0]["entity_id"] == created["id"]
+    assert events[0]["news_item_id"] == created["id"]
+    assert events[0]["before_state"] == {"cover_image_url": None}
+    assert events[0]["after_state"] == {"cover_image_url": first_url}
+    assert events[0]["metadata"]["operation"] == "set"
+
+    replace_response = await client.patch(
+        f"/api/v1/news/{created['id']}/cover-image",
+        json={"cover_image_url": second_url},
+    )
+    assert replace_response.status_code == 200
+    assert replace_response.json()["cover_image_url"] == second_url
+
+    events = await _audit_events(client, created["id"])
+    assert events[0]["before_state"] == {"cover_image_url": first_url}
+    assert events[0]["after_state"] == {"cover_image_url": second_url}
+    assert events[0]["metadata"]["operation"] == "replace"
+
+    clear_response = await client.patch(
+        f"/api/v1/news/{created['id']}/cover-image",
+        json={"cover_image_url": None},
+    )
+    assert clear_response.status_code == 200
+    assert clear_response.json()["cover_image_url"] is None
+
+    get_after_clear = await client.get(f"/api/v1/news/{created['id']}")
+    assert get_after_clear.status_code == 200
+    assert get_after_clear.json()["cover_image_url"] is None
+
+    events = await _audit_events(client, created["id"])
+    assert events[0]["before_state"] == {"cover_image_url": second_url}
+    assert events[0]["after_state"] == {"cover_image_url": None}
+    assert events[0]["metadata"]["operation"] == "clear"
+
+
+@pytest.mark.parametrize(
+    "cover_image_url",
+    [
+        "javascript:alert(1)",
+        "data:image/png;base64,AAAA",
+        "file:///tmp/image.png",
+        "ftp://example.com/image.png",
+        "/relative/image.png",
+        "https:///image.png",
+        f"https://example.com/{'a' * 2048}",
+    ],
+)
+async def test_update_news_cover_image_rejects_invalid_urls(client, cover_image_url):
+    created = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+
+    response = await client.patch(
+        f"/api/v1/news/{created['id']}/cover-image",
+        json={"cover_image_url": cover_image_url},
+    )
+
+    assert response.status_code == 422
+
+
+async def test_update_news_cover_image_not_found(client):
+    response = await client.patch(
+        "/api/v1/news/does-not-exist/cover-image",
+        json={"cover_image_url": "https://cdn.example.com/news/cover.png"},
+    )
+
+    assert response.status_code == 404
 
 
 # --- List filters and total count (GET /api/v1/news) ---
