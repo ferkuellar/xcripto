@@ -510,6 +510,33 @@ async def test_editor_can_promote_intake(client, monkeypatch):
     assert response.status_code == 200
 
 
+async def test_editor_can_update_news_cover_image(client, monkeypatch):
+    news = await create_news(client)
+    enable_auth(monkeypatch)
+
+    response = await client.patch(
+        f"/api/v1/news/{news['id']}/cover-image",
+        json={"cover_image_url": "https://cdn.example.com/news/editor-cover.png"},
+        headers=auth_headers("editor"),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["cover_image_url"] == "https://cdn.example.com/news/editor-cover.png"
+
+
+async def test_publisher_cannot_update_news_cover_image(client, monkeypatch):
+    news = await create_news(client)
+    enable_auth(monkeypatch)
+
+    response = await client.patch(
+        f"/api/v1/news/{news['id']}/cover-image",
+        json={"cover_image_url": "https://cdn.example.com/news/publisher-cover.png"},
+        headers=auth_headers("publisher"),
+    )
+
+    assert response.status_code == 403
+
+
 async def test_publisher_can_create_publication_record(client, monkeypatch):
     news = await create_news(client)
     piece = await client.post(

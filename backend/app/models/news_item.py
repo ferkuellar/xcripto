@@ -14,5 +14,6 @@ class NewsItem(UuidPrimaryKeyMixin, TimestampMixin, Base):
     status: Mapped[str] = mapped_column(String(40), nullable=False, default="detected", index=True)
     source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     source_name: Mapped[str] = mapped_column(String(180), nullable=False)
+    cover_image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
     correlation_id: Mapped[str | None] = mapped_column(String(80), nullable=True, index=True)
 

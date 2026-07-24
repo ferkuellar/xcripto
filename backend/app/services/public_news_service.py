@@ -261,14 +261,14 @@ async def build_public_news_payload(
         "published_at": published_at,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
-        "cover_image_url": None,
+        "cover_image_url": item.cover_image_url,
         "tags": [item.category],
         "canonical_url": canonical_url,
         "seo_title": item.title,
         "seo_description": item.summary,
         "og_title": item.title,
         "og_description": item.summary,
-        "og_image": None,
+        "og_image": item.cover_image_url,
         "json_ld_type": "NewsArticle",
     }
 
@@ -317,14 +317,14 @@ async def build_public_article_payload(
         "published_at": published_at,
         "created_at": item.created_at,
         "updated_at": item.updated_at,
-        "cover_image_url": None,
+        "cover_image_url": item.cover_image_url,
         "tags": [content_piece.category or item.category],
         "canonical_url": canonical_url,
         "seo_title": title,
         "seo_description": summary,
         "og_title": title,
         "og_description": summary,
-        "og_image": None,
+        "og_image": item.cover_image_url,
         "json_ld_type": "NewsArticle",
     }
 

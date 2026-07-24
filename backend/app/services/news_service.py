@@ -167,6 +167,18 @@ async def update_news_status(session: AsyncSession, news_id: str, status: str) -
     return item
 
 
+async def update_news_cover_image(
+    session: AsyncSession,
+    news_id: str,
+    cover_image_url: str | None,
+) -> NewsItem:
+    item = await get_news_item(session, news_id)
+    item.cover_image_url = cover_image_url
+    await session.commit()
+    await session.refresh(item)
+    return item
+
+
 async def _latest_verification_record(
     session: AsyncSession, news_item_id: str
 ) -> VerificationRecord | None:
