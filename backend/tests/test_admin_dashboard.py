@@ -118,6 +118,28 @@ async def create_content_and_plan(client, news_id: str) -> tuple[dict, dict]:
     return piece.json(), plan.json()
 
 
+async def create_approved_risk_review(client, news_id: str) -> dict:
+    response = await client.post(
+        "/api/v1/risk-reviews",
+        json={
+            "news_item_id": news_id,
+            "entity_type": "news_item",
+            "entity_id": news_id,
+            "risk_level": "medium",
+            "severity": "R-SEV-1",
+            "decision_recommendation": "allow_with_minor_edits",
+            "risk_flags": [],
+            "summary": "Risk reviewed.",
+            "required_disclaimers": [],
+            "language_restrictions": [],
+            "human_review_required": False,
+            "publication_block_recommended": False,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 async def test_overview_counts_intake_signals(client):
     await create_signal(client)
 
@@ -470,6 +492,7 @@ async def test_gaps_detects_news_without_verification(client):
 async def test_gaps_detects_published_without_metrics(client):
     news = await create_news(client)
     piece, plan = await create_content_and_plan(client, news["id"])
+    await create_approved_risk_review(client, news["id"])
     publication = await client.post(
         "/api/v1/publication-records",
         json={

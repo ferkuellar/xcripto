@@ -11,6 +11,7 @@ from app.services.publication_dispatch_service import (
     _latest_publication_for_channel,
     dispatch_publication_record,
 )
+from app.services.risk_review_service import require_risk_approval_for_publication
 
 
 def _validate_published_reference(
@@ -43,6 +44,7 @@ async def create_publication_record(
         payload.channel,
     )
     if existing is not None and existing.publication_status == "published":
+        await _recalculate_news_workflows(session, existing.news_item_id)
         return existing
 
     content_piece = await session.get(ContentPiece, payload.content_piece_id)
@@ -66,6 +68,8 @@ async def create_publication_record(
             "PublicationRecord requires a DistributionPlan with status "
             "scheduled or ready_for_review"
         )
+    if payload.publication_status == "published":
+        await require_risk_approval_for_publication(session, payload.news_item_id)
 
     _validate_published_reference(
         payload.publication_status,
@@ -82,6 +86,7 @@ async def create_publication_record(
     await session.refresh(record)
     await dispatch_publication_record(session, record.id)
     await session.refresh(record)
+    await _recalculate_news_workflows(session, record.news_item_id)
     return record
 
 
@@ -124,9 +129,23 @@ async def update_publication_record_status(
         record.published_url,
         record.external_id,
     )
+    if publication_status == "published":
+        await require_risk_approval_for_publication(session, record.news_item_id)
     record.publication_status = publication_status
     await session.commit()
     await session.refresh(record)
     await dispatch_publication_record(session, record.id)
     await session.refresh(record)
+    await _recalculate_news_workflows(session, record.news_item_id)
     return record
+
+
+async def _recalculate_news_workflows(session: AsyncSession, news_item_id: str) -> None:
+    from app.models import WorkflowRun
+    from app.services import workflow_service
+
+    result = await session.execute(
+        select(WorkflowRun.id).where(WorkflowRun.news_item_id == news_item_id)
+    )
+    for workflow_run_id in result.scalars().all():
+        await workflow_service.recalculate_workflow_run(session, workflow_run_id)

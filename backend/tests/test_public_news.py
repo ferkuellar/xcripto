@@ -80,8 +80,31 @@ def _publication_record_payload(news_id: str, content_piece_id: str, plan_id: st
     }
 
 
+async def _create_approved_risk_review(client, news_id: str) -> dict:
+    response = await client.post(
+        "/api/v1/risk-reviews",
+        json={
+            "news_item_id": news_id,
+            "entity_type": "news_item",
+            "entity_id": news_id,
+            "risk_level": "medium",
+            "severity": "R-SEV-1",
+            "decision_recommendation": "allow_with_minor_edits",
+            "risk_flags": [],
+            "summary": "Risk approved for public news fixture.",
+            "required_disclaimers": [],
+            "language_restrictions": [],
+            "human_review_required": False,
+            "publication_block_recommended": False,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 async def _create_canonical_publication(client, payload: dict) -> dict:
     news = (await client.post("/api/v1/news/intake", json=payload)).json()
+    await _create_approved_risk_review(client, news["id"])
     piece = (
         await client.post("/api/v1/content-pieces", json=_content_piece_payload(news["id"]))
     ).json()

@@ -32,8 +32,8 @@ def verification_payload(news_id: str) -> dict:
     }
 
 
-def risk_review_payload(news_id: str) -> dict:
-    return {
+def risk_review_payload(news_id: str, **overrides) -> dict:
+    payload = {
         "news_item_id": news_id,
         "entity_type": "news_item",
         "entity_id": news_id,
@@ -48,6 +48,7 @@ def risk_review_payload(news_id: str) -> dict:
         "publication_block_recommended": False,
         "reviewer": "risk-editor",
     }
+    return {**payload, **overrides}
 
 
 def content_piece_payload(news_id: str, **overrides) -> dict:
@@ -178,6 +179,23 @@ async def test_create_risk_review(client):
     assert response.json()["risk_level"] == "medium"
 
 
+async def test_create_risk_review_is_idempotent_for_same_entity(client):
+    news = await create_news_item(client)
+    payload = risk_review_payload(news["id"])
+
+    first = await client.post("/api/v1/risk-reviews", json=payload)
+    second = await client.post("/api/v1/risk-reviews", json=payload)
+    listed = await client.get(
+        "/api/v1/risk-reviews",
+        params={"news_item_id": news["id"], "limit": 50},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 201
+    assert second.json()["id"] == first.json()["id"]
+    assert len(listed.json()) == 1
+
+
 async def test_create_content_piece_valid(client):
     news = await create_news_item(client)
 
@@ -272,6 +290,11 @@ async def test_create_publication_record_valid(client):
 
 async def test_create_publication_record_is_idempotent_for_published_xcripto_web(client):
     news, piece, plan = await create_publishable_chain(client)
+    risk = await client.post(
+        "/api/v1/risk-reviews",
+        json=risk_review_payload(news["id"], human_review_required=False),
+    )
+    assert risk.status_code == 201
     payload = publication_record_payload(
         news["id"],
         piece["id"],
@@ -304,8 +327,73 @@ async def test_create_publication_record_blocks_unapproved_content_piece(client)
     assert response.status_code == 409
 
 
+async def test_create_publication_record_blocks_pending_human_risk_decision(client):
+    news, piece, plan = await create_publishable_chain(client)
+    risk = await client.post("/api/v1/risk-reviews", json=risk_review_payload(news["id"]))
+    assert risk.status_code == 201
+
+    response = await client.post(
+        "/api/v1/publication-records",
+        json=publication_record_payload(
+            news["id"],
+            piece["id"],
+            plan["id"],
+            publication_status="published",
+            published_url="https://example.com/published",
+        ),
+    )
+
+    assert response.status_code == 409
+    assert "human risk decision" in response.json()["error"]
+
+
+async def test_publish_rejected_by_risk_gate_creates_no_record_or_dispatch(client, monkeypatch):
+    news, piece, plan = await create_publishable_chain(client)
+    risk = await client.post("/api/v1/risk-reviews", json=risk_review_payload(news["id"]))
+    assert risk.status_code == 201
+    dispatch_calls = 0
+
+    async def fail_if_dispatched(*args, **kwargs):
+        nonlocal dispatch_calls
+        dispatch_calls += 1
+        raise AssertionError("dispatch should not run when risk approval is pending")
+
+    from app.services import publication_record_service
+
+    monkeypatch.setattr(
+        publication_record_service,
+        "dispatch_publication_record",
+        fail_if_dispatched,
+    )
+
+    response = await client.post(
+        "/api/v1/publication-records",
+        json=publication_record_payload(
+            news["id"],
+            piece["id"],
+            plan["id"],
+            publication_status="published",
+            published_url="https://example.com/published",
+        ),
+    )
+    records = await client.get(
+        "/api/v1/publication-records",
+        params={"news_item_id": news["id"], "limit": 50},
+    )
+
+    assert response.status_code == 409
+    assert records.status_code == 200
+    assert records.json() == []
+    assert dispatch_calls == 0
+
+
 async def test_create_publication_record_blocks_published_without_external_reference(client):
     news, piece, plan = await create_publishable_chain(client)
+    risk = await client.post(
+        "/api/v1/risk-reviews",
+        json=risk_review_payload(news["id"], human_review_required=False),
+    )
+    assert risk.status_code == 201
 
     response = await client.post(
         "/api/v1/publication-records",

@@ -73,8 +73,31 @@ def _publication_record_payload(
     return {**payload, **overrides}
 
 
+async def _create_approved_risk_review(client, news_id: str) -> dict:
+    response = await client.post(
+        "/api/v1/risk-reviews",
+        json={
+            "news_item_id": news_id,
+            "entity_type": "news_item",
+            "entity_id": news_id,
+            "risk_level": "medium",
+            "severity": "R-SEV-1",
+            "decision_recommendation": "allow_with_minor_edits",
+            "risk_flags": [],
+            "summary": "Risk approved for X publication dispatch test.",
+            "required_disclaimers": [],
+            "language_restrictions": [],
+            "human_review_required": False,
+            "publication_block_recommended": False,
+        },
+    )
+    assert response.status_code == 201
+    return response.json()
+
+
 async def _create_x_publication_chain(client, **overrides) -> dict:
     news = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+    await _create_approved_risk_review(client, news["id"])
     piece = (
         await client.post("/api/v1/content-pieces", json=_content_piece_payload(news["id"]))
     ).json()
@@ -349,6 +372,7 @@ async def test_x_and_telegram_same_news_item_are_independent(client, monkeypatch
     )
 
     news = (await client.post("/api/v1/news/intake", json=NEWS_PAYLOAD)).json()
+    await _create_approved_risk_review(client, news["id"])
     piece = (
         await client.post("/api/v1/content-pieces", json=_content_piece_payload(news["id"]))
     ).json()

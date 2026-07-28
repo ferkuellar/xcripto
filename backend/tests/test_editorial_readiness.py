@@ -248,6 +248,7 @@ async def test_score_with_published_publication_marks_published(client):
     news = await create_news_item(client)
     piece = await create_content_piece(client, news["id"], status="approved")
     plan = await create_distribution_plan(client, news["id"], piece["id"], status="scheduled")
+    await create_risk_review(client, news["id"])
     await create_publication_record(client, news["id"], piece["id"], plan["id"], status="published")
 
     score = await calculate_score(client, news["id"])
