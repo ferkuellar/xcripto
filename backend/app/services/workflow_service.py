@@ -85,6 +85,7 @@ class WorkflowAssessment:
     next_agent: str
     completed_at: datetime | None
     completed_steps: dict[str, tuple[str | None, str | None]]
+    current_entity: tuple[str | None, str | None] | None = None
 
 
 async def create_workflow_run(
@@ -256,6 +257,20 @@ async def assess_workflow(session: AsyncSession, news_item_id: str) -> WorkflowA
             ["RiskReview"],
             completed_steps,
         )
+    if risk_review.human_review_required:
+        return WorkflowAssessment(
+            current_step="risk_review",
+            status="waiting_review",
+            readiness_status="ready_for_review",
+            blocked=False,
+            blocking_reasons=[],
+            missing_requirements=[],
+            recommended_next_action="Complete human RiskReview decision before publication.",
+            next_agent="RiskAgent",
+            completed_at=None,
+            completed_steps=completed_steps,
+            current_entity=("risk_review", risk_review.id),
+        )
     if risk_review.publication_block_recommended:
         blocking_reasons.append("RiskReview recommends publication block")
     if risk_review.decision_recommendation in {"block_publication", "reject"}:
@@ -400,6 +415,7 @@ def _missing_assessment(
         next_agent=STEP_NEXT_AGENTS.get(step, "None"),
         completed_at=None,
         completed_steps=completed_steps or {},
+        current_entity=None,
     )
 
 
@@ -421,6 +437,7 @@ def _blocked_assessment(
         next_agent=STEP_NEXT_AGENTS.get(step, "None"),
         completed_at=None,
         completed_steps=completed_steps or {},
+        current_entity=None,
     )
 
 
@@ -455,10 +472,19 @@ async def _sync_workflow_steps(
             if step.completed_at is None:
                 step.completed_at = datetime.now(UTC)
         elif step.step_name == assessment.current_step:
-            step.step_status = "blocked" if assessment.blocked else "waiting_dependency"
+            if assessment.blocked:
+                step.step_status = "blocked"
+            elif assessment.status in {"waiting_input", "waiting_review"}:
+                step.step_status = assessment.status
+            else:
+                step.step_status = "waiting_dependency"
             step.completed = False
             step.blocking = assessment.blocked
             step.blocking_reason = "; ".join(assessment.blocking_reasons) or None
+            if assessment.current_entity is not None:
+                entity_type, entity_id = assessment.current_entity
+                step.entity_type = entity_type
+                step.entity_id = entity_id
         elif WORKFLOW_STEP_ORDER.index(step.step_name) < current_index:
             step.step_status = "skipped"
             step.completed = False

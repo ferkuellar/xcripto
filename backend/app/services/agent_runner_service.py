@@ -17,8 +17,9 @@ from app.schemas.agent_runner import (
     AgentRunnerTaskEligibility,
     AgentRunnerWorkflowRunNextResponse,
 )
+from app.schemas.risk_review import RiskReviewCreate
 from app.schemas.workflow_task import WorkflowTaskRead
-from app.services import agent_output_service, workflow_task_service
+from app.services import agent_output_service, risk_review_service, workflow_task_service
 
 INTERNAL_RUNNER_VERSION = "internal-runner-v1"
 TERMINAL_STATUSES = {"completed", "completed_with_warnings", "cancelled", "archived"}
@@ -153,6 +154,13 @@ async def run_task(
             runner=runner,
             correlation_id=correlation_id,
         )
+        if agent_name == "RiskAgent":
+            await _persist_risk_review_for_output(
+                session,
+                task,
+                output,
+                correlation_id=correlation_id,
+            )
         execution.status = "completed"
         execution.output_ref = output.id
         execution.completed_at = datetime.now(UTC)
@@ -440,6 +448,49 @@ async def _create_output_for_task(
         correlation_id=correlation_id or task.correlation_id,
     )
     return output
+
+
+async def _persist_risk_review_for_output(
+    session: AsyncSession,
+    task: WorkflowTask,
+    output: AgentOutput,
+    *,
+    correlation_id: str | None,
+) -> None:
+    if task.news_item_id is None:
+        raise ConflictError("RiskAgent requires news_item_id to persist RiskReview")
+
+    payload = output.payload or {}
+    review = await risk_review_service.create_risk_review(
+        session,
+        RiskReviewCreate(
+            news_item_id=task.news_item_id,
+            entity_type="WorkflowTask",
+            entity_id=task.id,
+            risk_level=payload.get("risk_level", "unknown"),
+            severity=payload.get("severity", "R-SEV-1"),
+            decision_recommendation=payload.get(
+                "decision_recommendation",
+                "require_human_review",
+            ),
+            risk_flags=output.risk_flags or ["requires_human_review"],
+            summary=output.summary,
+            required_disclaimers=payload.get("required_disclaimers", []),
+            language_restrictions=payload.get("language_restrictions", []),
+            human_review_required=True,
+            publication_block_recommended=payload.get(
+                "publication_block_recommended",
+                False,
+            ),
+            reviewer=None,
+            correlation_id=correlation_id or task.correlation_id,
+        ),
+        correlation_id=correlation_id or task.correlation_id,
+    )
+    output.missing_requirements = []
+    output.payload = {**payload, "risk_review_id": review.id}
+    await session.commit()
+    await session.refresh(output)
 
 
 def _resolve_agent(task: WorkflowTask, force: bool = False) -> str | None:

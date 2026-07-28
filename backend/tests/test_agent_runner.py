@@ -200,6 +200,61 @@ async def test_run_risk_agent_marks_human_review_required(client):
     assert response.json()["task"]["task_status"] == "completed_with_warnings"
 
 
+async def test_run_risk_agent_persists_risk_review_and_updates_workflow(client):
+    _, workflow, _task = await create_workflow_task_chain(client)
+    verification = await client.post(
+        "/api/v1/verification-records",
+        json={
+            "news_item_id": workflow["news_item_id"],
+            "verification_status": "verified",
+            "evidence_level": "E3",
+            "confidence_level": "C4",
+            "summary": "Verified before risk review.",
+            "verified_claims": ["Runner test news is sourced."],
+            "unverified_claims": [],
+            "contradictions": [],
+            "source_refs": ["https://example.com/runner"],
+        },
+    )
+    assert verification.status_code == 201
+    risk_task = await create_task(
+        client,
+        workflow["id"],
+        workflow["news_item_id"],
+        task_type="risk_review",
+        assigned_agent="RiskAgent",
+    )
+
+    response = await client.post(f"/api/v1/agent-runner/tasks/{risk_task['id']}/run", json={})
+
+    assert response.status_code == 200
+    output = response.json()["output"]
+    reviews_response = await client.get(
+        "/api/v1/risk-reviews",
+        params={"news_item_id": workflow["news_item_id"], "limit": 50},
+    )
+    assert reviews_response.status_code == 200
+    reviews = reviews_response.json()
+    assert len(reviews) == 1
+    assert reviews[0]["news_item_id"] == workflow["news_item_id"]
+    assert reviews[0]["entity_type"] == "WorkflowTask"
+    assert reviews[0]["entity_id"] == risk_task["id"]
+    assert reviews[0]["human_review_required"] is True
+    assert output["missing_requirements"] == []
+    assert output["payload"]["risk_review_id"] == reviews[0]["id"]
+
+    workflow_response = await client.post(f"/api/v1/workflows/{workflow['id']}/recalculate")
+    assert workflow_response.status_code == 200
+    updated = workflow_response.json()
+    assert updated["current_step"] == "risk_review"
+    assert updated["status"] == "waiting_review"
+    assert updated["missing_requirements"] == []
+    risk_step = next(step for step in updated["steps"] if step["step_name"] == "risk_review")
+    assert risk_step["step_status"] == "waiting_review"
+    assert risk_step["entity_type"] == "risk_review"
+    assert risk_step["entity_id"] == reviews[0]["id"]
+
+
 async def test_run_task_blocks_completed_task(client):
     _, _, task = await create_workflow_task_chain(client, task_status="completed")
 

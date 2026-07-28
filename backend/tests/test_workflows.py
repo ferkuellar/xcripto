@@ -50,6 +50,7 @@ async def create_risk_review(
     news_id: str,
     risk_level: str = "medium",
     publication_block_recommended: bool = False,
+    human_review_required: bool = False,
 ) -> dict:
     response = await client.post(
         "/api/v1/risk-reviews",
@@ -66,6 +67,7 @@ async def create_risk_review(
             "summary": "Risk reviewed.",
             "required_disclaimers": [],
             "language_restrictions": [],
+            "human_review_required": human_review_required,
             "publication_block_recommended": publication_block_recommended,
         },
     )
@@ -247,6 +249,40 @@ async def test_workflow_blocks_risk_review_publication_block(client):
     assert updated["current_step"] == "risk_review"
 
 
+async def test_workflow_waits_for_human_risk_decision_before_later_steps(client):
+    news = await create_news_item(client)
+    workflow = await start_workflow(client, news["id"])
+    await create_verification_record(client, news["id"])
+    risk_review = await create_risk_review(client, news["id"], human_review_required=True)
+
+    updated = await recalculate_workflow(client, workflow["id"])
+
+    assert updated["blocked"] is False
+    assert updated["status"] == "waiting_review"
+    assert updated["current_step"] == "risk_review"
+    assert updated["missing_requirements"] == []
+    risk_step = next(step for step in updated["steps"] if step["step_name"] == "risk_review")
+    assert risk_step["step_status"] == "waiting_review"
+    assert risk_step["entity_type"] == "risk_review"
+    assert risk_step["entity_id"] == risk_review["id"]
+
+
+async def test_workflow_recovers_inconsistent_later_objects_without_risk_decision(client):
+    news = await create_news_item(client)
+    workflow = await start_workflow(client, news["id"])
+    await create_verification_record(client, news["id"])
+    await create_risk_review(client, news["id"], human_review_required=True)
+    piece = await create_content_piece(client, news["id"], status="approved")
+    await create_audit_check(client, news["id"])
+    await create_distribution_plan(client, news["id"], piece["id"], status="scheduled")
+
+    updated = await recalculate_workflow(client, workflow["id"])
+
+    assert updated["status"] == "waiting_review"
+    assert updated["current_step"] == "risk_review"
+    assert updated["missing_requirements"] == []
+
+
 async def test_workflow_detects_missing_content_piece(client):
     news = await create_news_item(client)
     workflow = await start_workflow(client, news["id"])
@@ -299,6 +335,61 @@ async def test_workflow_detects_missing_publication_record(client):
 
     assert updated["current_step"] == "publication"
     assert updated["missing_requirements"] == ["PublicationRecord"]
+
+
+async def test_workflow_detects_related_publication_record_as_present(client):
+    news = await create_news_item(client)
+    workflow = await start_workflow(client, news["id"])
+    await create_verification_record(client, news["id"])
+    await create_risk_review(client, news["id"])
+    piece = await create_content_piece(client, news["id"], status="approved")
+    await create_audit_check(client, news["id"])
+    plan = await create_distribution_plan(client, news["id"], piece["id"], status="scheduled")
+    publication = await create_publication_record(
+        client,
+        news["id"],
+        piece["id"],
+        plan["id"],
+        status="published",
+    )
+
+    updated = await recalculate_workflow(client, workflow["id"])
+
+    assert "PublicationRecord" not in updated["missing_requirements"]
+    publication_step = next(
+        step for step in updated["steps"] if step["step_name"] == "publication"
+    )
+    assert publication_step["step_status"] == "completed"
+    assert publication_step["entity_type"] == "publication_record"
+    assert publication_step["entity_id"] == publication["id"]
+
+
+async def test_publication_record_creation_refreshes_workflow_publication_step(client):
+    news = await create_news_item(client)
+    workflow = await start_workflow(client, news["id"])
+    await create_verification_record(client, news["id"])
+    await create_risk_review(client, news["id"])
+    piece = await create_content_piece(client, news["id"], status="approved")
+    await create_audit_check(client, news["id"])
+    plan = await create_distribution_plan(client, news["id"], piece["id"], status="scheduled")
+    publication = await create_publication_record(
+        client,
+        news["id"],
+        piece["id"],
+        plan["id"],
+        status="published",
+    )
+
+    response = await client.get(f"/api/v1/workflows/{workflow['id']}")
+    assert response.status_code == 200
+    updated = response.json()
+
+    assert "PublicationRecord" not in updated["missing_requirements"]
+    publication_step = next(
+        step for step in updated["steps"] if step["step_name"] == "publication"
+    )
+    assert publication_step["step_status"] == "completed"
+    assert publication_step["entity_id"] == publication["id"]
 
 
 async def test_workflow_reaches_measurement_when_publication_is_published(client):
